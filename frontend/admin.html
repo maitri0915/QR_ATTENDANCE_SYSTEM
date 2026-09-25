@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — QR Attendance System</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+  <div class="sidebar">
+    <div class="brand">Roll<span>Call</span></div>
+    <nav id="sideNav">
+      <a href="#" data-section="overview" class="active"><span class="label">Overview</span></a>
+      <a href="#" data-section="departments"><span class="label">Departments</span></a>
+      <a href="#" data-section="subjects"><span class="label">Subjects</span></a>
+      <a href="#" data-section="people"><span class="label">Faculty &amp; Students</span></a>
+      <a href="#" data-section="allocations"><span class="label">Class Allocation</span></a>
+      <a href="#" data-section="reports"><span class="label">Reports</span></a>
+    </nav>
+    <div class="logout"><button class="btn-outline btn-block" onclick="Auth.logout()">Log out</button></div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Administrator</h1>
+      <div class="who">Signed in as <b id="whoName"></b><span class="role-tag">admin</span></div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <section id="sec-overview">
+      <div class="stat-row" id="statRow"></div>
+      <div class="panel">
+        <div class="panel-head"><h2>Attendance overview</h2></div>
+        <table class="ledger" id="overviewTable">
+          <thead><tr><th>Student</th><th>Subject</th><th>Division</th><th>Date</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DEPARTMENTS -->
+    <section id="sec-departments" style="display:none;">
+      <div class="panel-head"><h2>Departments</h2><button onclick="openModal('deptModal')">+ New department</button></div>
+      <table class="ledger" id="deptTable">
+        <thead><tr><th class="num">#</th><th>Name</th><th>Description</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- SUBJECTS -->
+    <section id="sec-subjects" style="display:none;">
+      <div class="panel-head"><h2>Subjects</h2><button onclick="openModal('subjModal')">+ New subject</button></div>
+      <table class="ledger" id="subjTable">
+        <thead><tr><th class="num">Code</th><th>Name</th><th>Semester</th><th>Department</th><th>Sessions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- PEOPLE -->
+    <section id="sec-people" style="display:none;">
+      <div class="tabs">
+        <button class="active" data-role="faculty" onclick="switchPeopleTab('faculty')">Faculty</button>
+        <button data-role="student" onclick="switchPeopleTab('student')">Students</button>
+      </div>
+      <div class="panel-head"><h2 id="peopleTitle">Faculty</h2><button onclick="openModal('userModal')">+ Add person</button></div>
+      <table class="ledger" id="peopleTable">
+        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Roll/Emp ID</th><th>Department</th><th>Sem / Div</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- ALLOCATIONS -->
+    <section id="sec-allocations" style="display:none;">
+      <div class="panel-head"><h2>Class allocation</h2><button onclick="openModal('allocModal')">+ Assign class</button></div>
+      <table class="ledger" id="allocTable">
+        <thead><tr><th>Subject</th><th>Faculty</th><th>Semester</th><th>Division</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="sec-reports" style="display:none;">
+      <div class="panel">
+        <h2>Export attendance report</h2>
+        <p>Download the full attendance ledger across all departments and semesters.</p>
+        <div style="display:flex; gap:10px; margin-top:16px;">
+          <button onclick="exportReport('csv')">Download CSV</button>
+          <button class="btn-outline" onclick="exportReport('xlsx')">Download Excel</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-backdrop" id="deptModal">
+  <div class="modal">
+    <h2>New department</h2>
+    <form id="deptForm">
+      <label>Department name</label><input type="text" id="deptName" required>
+      <label>Description</label><textarea id="deptDesc"></textarea>
+      <div class="modal-actions"><button type="submit">Create</button><button type="button" class="btn-outline" onclick="closeModal('deptModal')">Cancel</button></div>
+      <div class="error-msg" id="deptErr"></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="subjModal">
+  <div class="modal">
+    <h2>New subject</h2>
+    <form id="subjForm">
+      <label>Subject code</label><input type="text" id="subjCode" required placeholder="CE301">
+      <label>Subject name</label><input type="text" id="subjName" required>
+      <label>Semester</label><input type="number" id="subjSem" min="1" max="8" required>
+      <label>Department</label><select id="subjDept" required></select>
+      <div class="modal-actions"><button type="submit">Create</button><button type="button" class="btn-outline" onclick="closeModal('subjModal')">Cancel</button></div>
+      <div class="error-msg" id="subjErr"></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="userModal">
+  <div class="modal">
+    <h2 id="userModalTitle">Add person</h2>
+    <form id="userForm">
+      <label>Full name</label><input type="text" id="uName" required>
+      <label>Email</label><input type="email" id="uEmail" required>
+      <label>Temporary password</label><input type="text" id="uPassword" required value="Welcome@123">
+      <label>Role</label>
+      <select id="uRole" required>
+        <option value="faculty">Faculty</option>
+        <option value="student">Student</option>
+      </select>
+      <label>Department</label><select id="uDept"></select>
+      <label>Roll no. / Employee ID</label><input type="text" id="uInternalId">
+      <div id="studentOnlyFields">
+        <label>Semester</label><input type="number" id="uSemester" min="1" max="8">
+        <label>Division / Section</label><input type="text" id="uDivision" placeholder="A">
+      </div>
+      <div class="modal-actions"><button type="submit">Create account</button><button type="button" class="btn-outline" onclick="closeModal('userModal')">Cancel</button></div>
+      <div class="error-msg" id="userErr"></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="allocModal">
+  <div class="modal">
+    <h2>Assign class</h2>
+    <form id="allocForm">
+      <label>Subject</label><select id="allocSubj" required></select>
+      <label>Faculty</label><select id="allocFac" required></select>
+      <label>Semester</label><input type="number" id="allocSem" min="1" max="8" required>
+      <label>Division / Section</label><input type="text" id="allocDiv" required placeholder="A">
+      <div class="modal-actions"><button type="submit">Assign</button><button type="button" class="btn-outline" onclick="closeModal('allocModal')">Cancel</button></div>
+      <div class="error-msg" id="allocErr"></div>
+    </form>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>
