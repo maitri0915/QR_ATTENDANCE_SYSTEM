@@ -176,7 +176,7 @@ button:disabled { background: var(--line-strong); cursor: not-allowed; }
   text-align: center;
   color: #EDE8D8;
 }
-.qr-stage img { background: white; padding: 16px; border-radius: 6px; width: 260px; height: 260px; }
+.qr-stage img { background: white; padding: 16px; border-radius: 6px; width: 300px; height: 300px; image-rendering: pixelated; }
 .qr-stage .countdown { font-family: var(--mono); font-size: 32px; color: var(--amber); margin-top: 18px; }
 .qr-stage .qr-label { font-size: 13px; color: #A9B3C9; margin-top: 6px; }
 

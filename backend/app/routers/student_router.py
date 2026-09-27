@@ -7,12 +7,10 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from jose import JWTError
 from sqlalchemy.orm import Session
 
 from .. import models, schemas, auth
 from ..database import get_db
-from ..utils.qr import verify_qr_token
 from ..utils.analytics import recalc_snapshot
 from ..utils.geolocation import distance_meters, DEFAULT_MAX_DISTANCE_METERS
 
@@ -41,27 +39,17 @@ def scan_qr(
 ):
     profile = _current_profile(current_user, db)
 
-    # 1. Verify signature & expiry of the scanned token
-    try:
-        token_payload = verify_qr_token(payload.token)
-    except JWTError:
-        raise HTTPException(status_code=400, detail="QR code is invalid or has expired")
-
-    if token_payload.get("qr_id") != payload.qr_id:
-        raise HTTPException(status_code=400, detail="QR code mismatch")
-
-    # 2. Look up the matching log entry and re-validate against the DB
+    # 1. Look up the QR log entry and validate it against the database — the
+    # DB row is the source of truth for validity (no JWT to decode anymore).
     qr_log = db.query(models.DynamicQRLog).filter(
         models.DynamicQRLog.qr_id == payload.qr_id
     ).first()
-    if not qr_log or not qr_log.is_active:
+    if not qr_log:
+        raise HTTPException(status_code=400, detail="Unrecognized QR code")
+    if not qr_log.is_active:
         raise HTTPException(status_code=400, detail="This QR code is no longer active")
     if qr_log.expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="QR code has expired — ask faculty to refresh it")
-
-    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
-    if token_hash != qr_log.qr_token_hash:
-        raise HTTPException(status_code=400, detail="QR code validation failed")
 
     session_id = qr_log.session_id
     session = db.query(models.AttendanceSession).filter(
@@ -70,7 +58,7 @@ def scan_qr(
     if not session or session.is_closed:
         raise HTTPException(status_code=400, detail="This attendance session is closed")
 
-    # 3. Geolocation check — reject if the student's device is too far from the
+    # 2. Geolocation check — reject if the student's device is too far from the
     # classroom (mitigates handing an unlocked phone to a friend elsewhere).
     if session.classroom_latitude is not None and session.classroom_longitude is not None:
         if payload.student_latitude is None or payload.student_longitude is None:
@@ -88,7 +76,7 @@ def scan_qr(
                 detail=f"You appear to be too far from the classroom ({int(dist)}m away) to mark attendance from this location."
             )
 
-    # 4. Record / update attendance
+    # 3. Record / update attendance
     record = db.query(models.AttendanceRecord).filter(
         models.AttendanceRecord.session_id == session_id,
         models.AttendanceRecord.student_profile_id == profile.profile_id,
@@ -114,7 +102,7 @@ def scan_qr(
     db.commit()
     db.refresh(record)
 
-    # 5. Refresh analytics snapshot for this subject
+    # 4. Refresh analytics snapshot for this subject
     allocation = db.query(models.ClassAllocation).filter(
         models.ClassAllocation.allocation_id == session.allocation_id
     ).first()

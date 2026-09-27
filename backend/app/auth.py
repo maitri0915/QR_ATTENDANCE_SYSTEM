@@ -14,8 +14,11 @@ from sqlalchemy.orm import Session
 from . import models
 from .database import get_db
 
-# NOTE: for a real deployment, move SECRET_KEY to an environment variable.
-SECRET_KEY = "qr-attendance-micro-project-secret-key-change-me"
+import os
+
+# NOTE: on Render, set SECRET_KEY as an environment variable in the dashboard
+# instead of relying on this fallback.
+SECRET_KEY = os.environ.get("SECRET_KEY", "qr-attendance-micro-project-secret-key-change-me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 hour session
 

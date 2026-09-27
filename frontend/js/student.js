@@ -79,17 +79,15 @@ function getCurrentLocation() {
 }
 
 async function handleScannedPayload(payload) {
-  // QR encodes "qr_id|token"
-  const parts = payload.split("|");
-  if (parts.length !== 2) return;
-  const [qrId, token] = parts;
+  // QR now encodes ONLY the qr_id (short, low-density, easy to scan)
+  const qrId = payload.trim();
+  if (!qrId) return;
 
   scanLocked = true;
   try {
     const loc = await getCurrentLocation();
     await Api.post("/api/student/attendance/scan", {
       qr_id: qrId,
-      token,
       student_latitude: loc ? loc.latitude : null,
       student_longitude: loc ? loc.longitude : null,
     });

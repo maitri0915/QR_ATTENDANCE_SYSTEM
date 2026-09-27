@@ -148,7 +148,6 @@ class QRGenerateResponse(BaseModel):
 
 class QRScanRequest(BaseModel):
     qr_id: str
-    token: str
     student_latitude: Optional[float] = None
     student_longitude: Optional[float] = None
 
