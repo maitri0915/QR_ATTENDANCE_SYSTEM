@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Class Students</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 30px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 16px;
+            border-radius: 7px;
+            text-decoration: none;
+            margin-right: 8px;
+        }
+
+        .start {
+            background: #198754;
+            color: white;
+        }
+
+        .back {
+            background: #6c757d;
+            color: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f1f3f5;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <h1>{{ assignment["subject_name"] }}</h1>
+
+        <p>
+            <strong>Subject Code:</strong>
+            {{ assignment["subject_code"] }}
+        </p>
+
+        <p>
+            <strong>Semester:</strong>
+            {{ assignment["semester_number"] }}
+        </p>
+
+        <p>
+            <strong>Division:</strong>
+            {{ assignment["division_name"] }}
+        </p>
+
+        <a
+            class="btn start"
+            href="/faculty/assignments/{{ assignment['assignment_id'] }}/start"
+        >
+            ▶ Start Attendance
+        </a>
+
+        <a
+            class="btn back"
+            href="/faculty/dashboard"
+        >
+            ← Back
+        </a>
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>Students</h2>
+
+        {% if students %}
+
+        <table>
+
+            <tr>
+                <th>Roll No</th>
+                <th>Name</th>
+                <th>Email</th>
+            </tr>
+
+            {% for student in students %}
+
+            <tr>
+                <td>{{ student["roll_number"] }}</td>
+                <td>{{ student["name"] }}</td>
+                <td>{{ student["email"] }}</td>
+            </tr>
+
+            {% endfor %}
+
+        </table>
+
+        {% else %}
+
+        <p>No students found in this division.</p>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+</body>
+</html>

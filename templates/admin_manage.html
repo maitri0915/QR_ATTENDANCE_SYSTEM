@@ -1,0 +1,715 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Academic Data{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h1>Manage Academic Data</h1>
+
+    <p>
+        Create departments, semesters, divisions,
+        subjects and faculty assignments.
+    </p>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Add Department</h2>
+
+    <form method="post" action="/admin/departments/create">
+
+        <label>Department Name</label>
+
+        <input
+            type="text"
+            name="name"
+            placeholder="Computer Engineering"
+            required
+        >
+
+        <label>Department Code</label>
+
+        <input
+            type="text"
+            name="code"
+            placeholder="CE"
+            required
+        >
+
+        <button type="submit">
+            Add Department
+        </button>
+
+    </form>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Departments</h2>
+
+    {% if departments %}
+
+        {% for department in departments %}
+
+            <p>
+                <strong>{{ department.code }}</strong>
+                -
+                {{ department.name }}
+            </p>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>No departments found.</p>
+
+    {% endif %}
+
+</div>
+
+
+<div class="card">
+
+    <h2>Add Semester</h2>
+
+    <form method="post" action="/admin/semesters/create">
+
+        <label>Department</label>
+
+        <select name="department_id" required>
+
+            <option value="">
+                Select Department
+            </option>
+
+            {% for department in departments %}
+
+                <option value="{{ department.id }}">
+                    {{ department.code }}
+                    -
+                    {{ department.name }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <label>Semester Number</label>
+
+        <input
+            type="number"
+            name="number"
+            min="1"
+            max="8"
+            required
+        >
+
+        <button type="submit">
+            Add Semester
+        </button>
+
+    </form>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Existing Semesters</h2>
+
+    {% if semesters %}
+
+        {% for semester in semesters %}
+
+            <p>
+                {{ semester.department_code }}
+                -
+                Semester {{ semester.number }}
+            </p>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>No semesters found.</p>
+
+    {% endif %}
+
+</div>
+
+
+<div class="card">
+
+    <h2>Add Division / Class</h2>
+
+    <form method="post" action="/admin/divisions/create">
+
+        <label>Department</label>
+
+        <select name="department_id" required>
+
+            <option value="">
+                Select Department
+            </option>
+
+            {% for department in departments %}
+
+                <option value="{{ department.id }}">
+                    {{ department.code }}
+                    -
+                    {{ department.name }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <label>Semester</label>
+
+        <select name="semester_id" required>
+
+            <option value="">
+                Select Semester
+            </option>
+
+            {% for semester in semesters %}
+
+                <option value="{{ semester.id }}">
+                    {{ semester.department_code }}
+                    -
+                    Semester {{ semester.number }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <label>Division / Class Name</label>
+
+        <input
+            type="text"
+            name="name"
+            placeholder="A"
+            required
+        >
+
+        <button type="submit">
+            Add Division
+        </button>
+
+    </form>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Existing Divisions</h2>
+
+    {% if divisions %}
+
+        {% for division in divisions %}
+
+            <p>
+                {{ division.department_code }}
+                -
+                Semester {{ division.semester_number }}
+                -
+                Division {{ division.name }}
+            </p>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>No divisions found.</p>
+
+    {% endif %}
+
+</div>
+
+
+<div class="card">
+
+    <h2>Add Subject</h2>
+
+    <form method="post" action="/admin/subjects/create">
+
+        <label>Department</label>
+
+        <select name="department_id" required>
+
+            <option value="">
+                Select Department
+            </option>
+
+            {% for department in departments %}
+
+                <option value="{{ department.id }}">
+                    {{ department.code }}
+                    -
+                    {{ department.name }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <label>Semester</label>
+
+        <select name="semester_id" required>
+
+            <option value="">
+                Select Semester
+            </option>
+
+            {% for semester in semesters %}
+
+                <option value="{{ semester.id }}">
+                    {{ semester.department_code }}
+                    -
+                    Semester {{ semester.number }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <label>Subject Name</label>
+
+        <input
+            type="text"
+            name="name"
+            placeholder="Web Development using Python"
+            required
+        >
+
+
+        <label>Subject Code</label>
+
+        <input
+            type="text"
+            name="code"
+            placeholder="WDPY"
+            required
+        >
+
+        <button type="submit">
+            Add Subject
+        </button>
+
+    </form>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Existing Subjects</h2>
+
+    {% if subjects %}
+
+        {% for subject in subjects %}
+
+            <p>
+                <strong>{{ subject.code }}</strong>
+                -
+                {{ subject.name }}
+                -
+                {{ subject.department_code }}
+                Semester {{ subject.semester_number }}
+            </p>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>No subjects found.</p>
+
+    {% endif %}
+
+</div>
+
+
+<div class="card">
+
+    <h2>Faculty Teaching Assignments</h2>
+
+    {% if faculty %}
+
+        {% for person in faculty %}
+
+            <p>
+                <strong>{{ person.name }}</strong>
+                -
+                {{ person.employee_id }}
+                -
+                {{ person.department_code }}
+                -
+                {{ person.email }}
+            </p>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>No faculty registered yet.</p>
+
+    {% endif %}
+
+</div>
+
+
+<div class="card">
+
+    <h2>Assign Faculty</h2>
+
+    <form method="post" action="/admin/assignments/create">
+
+        <label>Faculty</label>
+
+        <select name="faculty_user_id" required>
+
+            <option value="">
+                Select Faculty
+            </option>
+
+            {% for person in faculty %}
+
+                <option value="{{ person.id }}">
+                    {{ person.name }}
+                    -
+                    {{ person.employee_id }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <label>Subject</label>
+
+        <select name="subject_id" required>
+
+            <option value="">
+                Select Subject
+            </option>
+
+            {% for subject in subjects %}
+
+                <option value="{{ subject.id }}">
+                    {{ subject.code }}
+                    -
+                    {{ subject.name }}
+                    -
+                    {{ subject.department_code }}
+                    Semester {{ subject.semester_number }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <label>Division / Class</label>
+
+        <select name="division_id" required>
+
+            <option value="">
+                Select Division
+            </option>
+
+            {% for division in divisions %}
+
+                <option value="{{ division.id }}">
+                    {{ division.department_code }}
+                    -
+                    Semester {{ division.semester_number }}
+                    -
+                    Division {{ division.name }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <button type="submit">
+            Assign Faculty
+        </button>
+
+    </form>
+
+</div>
+
+<div class="card">
+
+    <h2>Add Timetable Entry</h2>
+
+    <p>
+        Add the finalized weekly timetable.
+        The system automatically checks the current day and date.
+    </p>
+
+    <form method="post" action="/admin/timetable/create">
+
+        <label>Day</label>
+
+        <select name="day_of_week" required>
+            <option value="">Select Day</option>
+            <option value="0">Monday</option>
+            <option value="1">Tuesday</option>
+            <option value="2">Wednesday</option>
+            <option value="3">Thursday</option>
+            <option value="4">Friday</option>
+            <option value="5">Saturday</option>
+            <option value="6">Sunday</option>
+        </select>
+
+
+        <label>Start Time</label>
+
+        <input
+            type="time"
+            name="start_time"
+            required
+        >
+
+
+        <label>End Time</label>
+
+        <input
+            type="time"
+            name="end_time"
+            required
+        >
+
+
+        <label>Entry Type</label>
+
+        <select
+            name="entry_type"
+            id="entryType"
+            onchange="updateTimetableFields()"
+            required
+        >
+            <option value="">Select Type</option>
+            <option value="LECTURE">Lecture</option>
+            <option value="LAB">Lab</option>
+            <option value="HOD_USE">HOD / College Use</option>
+            <option value="OTHER">Other</option>
+        </select>
+
+
+        <div id="academicFields">
+
+            <label>Faculty</label>
+
+            <select name="faculty_user_id">
+
+                <option value="">
+                    Select Faculty
+                </option>
+
+                {% for person in faculty %}
+
+                    <option value="{{ person.id }}">
+                        {{ person.name }}
+                        -
+                        {{ person.employee_id }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+
+            <label>Subject</label>
+
+            <select name="subject_id">
+
+                <option value="">
+                    Select Subject
+                </option>
+
+                {% for subject in subjects %}
+
+                    <option value="{{ subject.id }}">
+                        {{ subject.code }}
+                        -
+                        {{ subject.name }}
+                        -
+                        {{ subject.department_code }}
+                        Sem {{ subject.semester_number }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+
+            <label>Division / Class</label>
+
+            <select name="division_id">
+
+                <option value="">
+                    Select Division
+                </option>
+
+                {% for division in divisions %}
+
+                    <option value="{{ division.id }}">
+                        {{ division.department_code }}
+                        -
+                        Sem {{ division.semester_number }}
+                        -
+                        Division {{ division.name }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+
+        <div id="otherFields" style="display:none;">
+
+            <label>Title / Description</label>
+
+            <input
+                type="text"
+                name="title"
+                placeholder="HOD Meeting / Seminar / College Event"
+            >
+
+        </div>
+
+
+        <button type="submit">
+            Add Timetable Entry
+        </button>
+
+    </form>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Weekly Timetable</h2>
+
+    {% if timetable %}
+
+        {% for item in timetable %}
+
+            <p>
+
+                {% if item.day_of_week == 0 %}
+                    <strong>Monday</strong>
+                {% elif item.day_of_week == 1 %}
+                    <strong>Tuesday</strong>
+                {% elif item.day_of_week == 2 %}
+                    <strong>Wednesday</strong>
+                {% elif item.day_of_week == 3 %}
+                    <strong>Thursday</strong>
+                {% elif item.day_of_week == 4 %}
+                    <strong>Friday</strong>
+                {% elif item.day_of_week == 5 %}
+                    <strong>Saturday</strong>
+                {% else %}
+                    <strong>Sunday</strong>
+                {% endif %}
+
+                —
+                {{ item.start_time }}–{{ item.end_time }}
+
+                —
+
+                {% if item.entry_type == "HOD_USE" %}
+                    {{ item.title }}
+
+                {% elif item.entry_type == "OTHER" %}
+                    {{ item.title }}
+
+                {% else %}
+
+                    {{ item.subject_code }}
+                    -
+                    {{ item.subject_name }}
+                    -
+                    {{ item.division_name }}
+                    -
+                    {{ item.faculty_name }}
+
+                    {% if item.entry_type == "LAB" %}
+                        — LAB
+                    {% endif %}
+
+                {% endif %}
+
+            </p>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>No timetable entries added yet.</p>
+
+    {% endif %}
+
+</div>
+
+
+<script>
+
+function updateTimetableFields() {
+
+    const type = document.getElementById("entryType").value;
+
+    const academicFields =
+        document.getElementById("academicFields");
+
+    const otherFields =
+        document.getElementById("otherFields");
+
+    if (type === "LECTURE" || type === "LAB") {
+
+        academicFields.style.display = "block";
+        otherFields.style.display = "none";
+
+    } else {
+
+        academicFields.style.display = "none";
+        otherFields.style.display = "block";
+
+    }
+
+}
+
+</script>
+
+<div class="card">
+
+    <a class="button" href="/admin/classes">
+        View All Classes
+    </a>
+
+    <a class="button" href="/dashboard">
+        Back to Dashboard
+    </a>
+
+</div>
+
+{% endblock %}

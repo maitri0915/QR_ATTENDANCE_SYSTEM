@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        .header {
+            background: #1f2937;
+            color: white;
+            padding: 20px 30px;
+        }
+
+        .header h1 {
+            margin: 0 0 5px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .card h2 {
+            margin-top: 0;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+        }
+
+        .info-box {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .assignment {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 15px;
+        }
+
+        .assignment h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .assignment p {
+            margin: 6px 0;
+        }
+
+        .button {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 10px 16px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+
+        .button:hover {
+            background: #1d4ed8;
+        }
+
+        .empty {
+            padding: 20px;
+            background: #fff7ed;
+            border-radius: 8px;
+        }
+
+        .logout {
+            display: inline-block;
+            margin-top: 10px;
+            color: white;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Faculty Dashboard</h1>
+        <div>
+            Logged in as: {{ user["name"] }}
+        </div>
+
+        <a class="logout" href="/faculty/leaves">Leave Requests</a>
+        &nbsp;|&nbsp;
+        <a class="logout" href="/logout">Logout</a>
+    </div>
+
+    <div class="container">
+
+        <div class="card">
+            <h2>Welcome, {{ user["name"] }}</h2>
+
+            {% if faculty %}
+            <div class="info-grid">
+
+                <div class="info-box">
+                    <strong>Employee ID</strong>
+                    <br>
+                    {{ faculty["employee_id"] }}
+                </div>
+
+                <div class="info-box">
+                    <strong>Email</strong>
+                    <br>
+                    {{ faculty["email"] }}
+                </div>
+
+                <div class="info-box">
+                    <strong>Department</strong>
+                    <br>
+                    {{ faculty["department_name"] }}
+                    ({{ faculty["department_code"] }})
+                </div>
+
+                <div class="info-box">
+                    <strong>Total Assignments</strong>
+                    <br>
+                    {{ assignments|length }}
+                </div>
+
+            </div>
+            {% endif %}
+        </div>
+
+
+        <div class="card">
+            <h2>My Teaching Assignments</h2>
+
+            {% if assignments %}
+
+                {% for assignment in assignments %}
+
+                <div class="assignment">
+
+                    <h3>
+                        {{ assignment["subject_name"] }}
+                        ({{ assignment["subject_code"] }})
+                    </h3>
+
+                    <p>
+                        <strong>Department:</strong>
+                        {{ assignment["department_name"] }}
+                    </p>
+
+                    <p>
+                        <strong>Semester:</strong>
+                        {{ assignment["semester_number"] }}
+                    </p>
+
+                    <p>
+                        <strong>Division:</strong>
+                        {{ assignment["division_name"] }}
+                    </p>
+
+                    <p>
+                        <strong>Students:</strong>
+                        {{ assignment["student_count"] }}
+                    </p>
+
+                    <a
+                        class="button"
+                        href="/faculty/assignments/{{ assignment['assignment_id'] }}"
+                    >
+                        View Class
+                    </a>
+
+                </div>
+
+                {% endfor %}
+
+            {% else %}
+
+                <div class="empty">
+                    <strong>No teaching assignments found.</strong>
+                    <p>
+                        Ask the administrator to assign a subject and class
+                        to your faculty account.
+                    </p>
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</body>
+</html>

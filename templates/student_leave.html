@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Leave Request{% endblock %}
+
+{% block content %}
+
+<h1 class="page-title">Leave Requests</h1>
+<p class="muted">Apply for leave for a class you missed. If your faculty approves it, that class is excused and not counted in your percentage.</p>
+
+<div class="card" style="max-width: 640px;">
+    <h2>New Leave Request</h2>
+
+    <div id="message"></div>
+
+    <label for="session">Missed class</label>
+    <select id="session"></select>
+
+    <label for="reason">Reason</label>
+    <textarea id="reason" maxlength="500" placeholder="Why were you absent?"></textarea>
+
+    <button type="button" id="submitBtn" onclick="submitLeave()">Submit Leave</button>
+</div>
+
+<div class="card">
+    <h2>My Leave Requests</h2>
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                </tr>
+            </thead>
+            <tbody id="leaveList"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function esc(value) {
+    const div = document.createElement("div");
+    div.textContent = value == null ? "" : String(value);
+    return div.innerHTML;
+}
+
+function fmtDate(value) {
+    if (!value) return "-";
+    const d = new Date(value);
+    return isNaN(d) ? esc(value) : d.toLocaleString([], {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit"
+    });
+}
+
+function show(text, ok) {
+    const box = document.getElementById("message");
+    box.className = ok ? "success" : "error";
+    box.textContent = text;
+}
+
+function leaveBadge(status) {
+    if (status === "Approved Leave") return '<span class="badge approved">Approved</span>';
+    if (status === "Rejected Leave") return '<span class="badge rejected">Rejected</span>';
+    return '<span class="badge pending">Pending</span>';
+}
+
+async function loadEligible() {
+    const select = document.getElementById("session");
+    const response = await fetch("/api/student/leave/eligible");
+    if (!response.ok) return;
+    const data = await response.json();
+
+    if (!data.sessions.length) {
+        select.innerHTML = '<option value="">No missed classes available</option>';
+        document.getElementById("submitBtn").disabled = true;
+        return;
+    }
+
+    document.getElementById("submitBtn").disabled = false;
+    select.innerHTML = data.sessions.map(s =>
+        `<option value="${s.session_id}">${fmtDate(s.started_at)} - ${esc(s.subject_code)} ${esc(s.subject_name)}</option>`
+    ).join("");
+
+    const wanted = new URLSearchParams(location.search).get("session");
+    if (wanted && data.sessions.some(s => String(s.session_id) === wanted)) {
+        select.value = wanted;
+    }
+}
+
+async function loadLeaves() {
+    const response = await fetch("/api/student/leave");
+    if (!response.ok) return;
+    const data = await response.json();
+
+    document.getElementById("leaveList").innerHTML = data.leaves.length
+        ? data.leaves.map(l => `
+            <tr>
+                <td>${fmtDate(l.started_at)}<br><span class="muted">${esc(l.subject_code)} - ${esc(l.subject_name)}</span></td>
+                <td>${esc(l.reason)}</td>
+                <td>${leaveBadge(l.status)}</td>
+                <td>${fmtDate(l.submitted_at)}</td>
+            </tr>`).join("")
+        : '<tr><td colspan="4" class="muted">No leave requests yet.</td></tr>';
+}
+
+async function submitLeave() {
+    const sessionId = document.getElementById("session").value;
+    const reason = document.getElementById("reason").value.trim();
+
+    if (!sessionId) { show("Please choose a class.", false); return; }
+    if (!reason) { show("Please enter a reason.", false); return; }
+
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+
+    try {
+        const response = await fetch("/api/student/leave", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: Number(sessionId), reason })
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            show(data.detail || "Failed to submit leave.", false);
+            return;
+        }
+
+        show(data.message, true);
+        document.getElementById("reason").value = "";
+        await loadEligible();
+        await loadLeaves();
+    } catch (e) {
+        show("Server error. Please try again.", false);
+    } finally {
+        if (document.getElementById("session").value) btn.disabled = false;
+    }
+}
+
+loadEligible();
+loadLeaves();
+</script>
+
+{% endblock %}

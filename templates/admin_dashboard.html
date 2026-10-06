@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h1>Admin Dashboard</h1>
+
+    <p>
+        Welcome, {{ current_user.name }}.
+    </p>
+
+</div>
+
+
+<div class="role-links">
+
+    <a class="button" href="/admin/manage">
+        Manage Academic Data
+    </a>
+
+    <a class="button" href="/admin/classes">
+        View Classes
+    </a>
+
+    <a class="button" href="/admin/faculty">
+        View Faculty
+    </a>
+
+</div>
+
+
+<div class="card">
+
+    <h2>System Overview</h2>
+
+    <p>
+        Departments:
+        <strong>{{ department_count }}</strong>
+    </p>
+
+    <p>
+        Semesters:
+        <strong>{{ semester_count }}</strong>
+    </p>
+
+    <p>
+        Divisions:
+        <strong>{{ division_count }}</strong>
+    </p>
+
+    <p>
+        Subjects:
+        <strong>{{ subject_count }}</strong>
+    </p>
+
+    <p>
+        Faculty:
+        <strong>{{ faculty_count }}</strong>
+    </p>
+
+    <p>
+        Students:
+        <strong>{{ student_count }}</strong>
+    </p>
+
+</div>
+
+{% endblock %}

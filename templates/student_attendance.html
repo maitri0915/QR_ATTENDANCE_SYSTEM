@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}My Attendance{% endblock %}
+
+{% block content %}
+
+<h1 class="page-title">My Attendance</h1>
+<p class="muted">Closed sessions only. Approved leave is excused and not counted against you.</p>
+
+<div class="card" id="overall">Loading attendance...</div>
+
+<div class="card">
+    <h2>Subject-wise Attendance</h2>
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Present</th>
+                    <th>Absent</th>
+                    <th>Leave</th>
+                    <th>Attendance</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody id="subjects"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Attendance History</h2>
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Method</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="history"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function esc(value) {
+    const div = document.createElement("div");
+    div.textContent = value == null ? "" : String(value);
+    return div.innerHTML;
+}
+
+function fmtDate(value) {
+    if (!value) return "-";
+    const d = new Date(value);
+    return isNaN(d) ? esc(value) : d.toLocaleString([], {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit"
+    });
+}
+
+function bar(percentage) {
+    if (percentage === null) return '<span class="muted">No classes yet</span>';
+    const low = percentage < 75;
+    return `
+        <div style="display:flex;align-items:center;gap:8px;">
+            <div class="bar ${low ? "low" : ""}" title="75% required">
+                <span style="width:${Math.min(percentage, 100)}%"></span>
+                <i class="mark"></i>
+            </div>
+            <strong>${percentage}%</strong>
+        </div>`;
+}
+
+function note(item) {
+    if (item.percentage === null) return "";
+    if (item.warning) {
+        return `<span style="color:#991b1b">Attend next ${item.classes_needed} class${item.classes_needed === 1 ? "" : "es"} to reach 75%</span>`;
+    }
+    return `<span class="muted">Can miss ${item.can_miss} more</span>`;
+}
+
+function statusBadge(status, leaveStatus) {
+    if (status === "present") return '<span class="badge present">Present</span>';
+    if (status === "leave") return '<span class="badge leave">Leave approved</span>';
+    if (leaveStatus === "Pending Leave") {
+        return '<span class="badge absent">Absent</span> <span class="badge pending">Leave pending</span>';
+    }
+    if (leaveStatus === "Rejected Leave") {
+        return '<span class="badge absent">Absent</span> <span class="badge rejected">Leave rejected</span>';
+    }
+    return '<span class="badge absent">Absent</span>';
+}
+
+async function loadAttendance() {
+    const response = await fetch("/api/student/attendance");
+
+    if (!response.ok) {
+        document.getElementById("overall").innerText = "Unable to load attendance.";
+        return;
+    }
+
+    const data = await response.json();
+    const o = data.overall;
+
+    let banner = "";
+    if (o.percentage === null) {
+        banner = '<div class="info">No attendance sessions have been completed yet.</div>';
+    } else if (o.warning) {
+        banner = `<div class="warn"><strong>Warning: your attendance is ${o.percentage}%, below the required 75%.</strong><br>
+            You need to attend the next ${o.classes_needed} class${o.classes_needed === 1 ? "" : "es"} in a row to get back to 75%.</div>`;
+    } else {
+        banner = `<div class="ok-note">Your attendance is above 75%. You can miss up to ${o.can_miss} more class${o.can_miss === 1 ? "" : "es"} and stay above it.</div>`;
+    }
+
+    document.getElementById("overall").innerHTML = `
+        <h2>Overall Attendance</h2>
+        ${banner}
+        <div class="stats">
+            <div class="stat"><div class="muted">Overall</div><div class="num">${o.percentage === null ? "-" : o.percentage + "%"}</div></div>
+            <div class="stat"><div class="muted">Sessions</div><div class="num">${o.total}</div></div>
+            <div class="stat"><div class="muted">Present</div><div class="num">${o.present}</div></div>
+            <div class="stat"><div class="muted">Absent</div><div class="num">${o.absent}</div></div>
+            <div class="stat"><div class="muted">Leave (excused)</div><div class="num">${o.leave}</div></div>
+        </div>`;
+
+    document.getElementById("subjects").innerHTML = data.subjects.length
+        ? data.subjects.map(s => `
+            <tr>
+                <td>${esc(s.subject_code)} - ${esc(s.subject_name)}</td>
+                <td>${s.present}</td>
+                <td>${s.absent}</td>
+                <td>${s.leave}</td>
+                <td>${bar(s.percentage)}</td>
+                <td>${note(s)}</td>
+            </tr>`).join("")
+        : '<tr><td colspan="6" class="muted">No data yet.</td></tr>';
+
+    document.getElementById("history").innerHTML = data.history.length
+        ? data.history.map(h => `
+            <tr>
+                <td>${fmtDate(h.date)}</td>
+                <td>${esc(h.subject_code)} - ${esc(h.subject_name)}</td>
+                <td>${statusBadge(h.status, h.leave_status)}</td>
+                <td>${esc(h.method)}</td>
+                <td>${h.status === "absent" && !h.leave_status ? '<a href="/student/leave?session=' + h.session_id + '">Apply for leave</a>' : ""}</td>
+            </tr>`).join("")
+        : '<tr><td colspan="5" class="muted">No sessions yet.</td></tr>';
+}
+
+loadAttendance();
+</script>
+
+{% endblock %}

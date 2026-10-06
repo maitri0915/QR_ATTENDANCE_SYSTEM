@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Attendance</title>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            padding: 25px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        }
+
+        .qr {
+            text-align: center;
+        }
+
+        .qr img {
+            width: 300px;
+            height: 300px;
+            border: 8px solid white;
+        }
+
+        .timer {
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px;
+        }
+
+        .token {
+            text-align: center;
+            word-break: break-all;
+            background: #f1f3f5;
+            padding: 12px;
+            border-radius: 7px;
+        }
+
+        .count {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+            color: white;
+            font-size: 16px;
+        }
+
+        .close {
+            background: #dc3545;
+        }
+
+        li {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <h1>Live Attendance</h1>
+
+        <p>
+            <strong>Subject:</strong>
+            {{ session["subject_name"] }}
+        </p>
+
+        <p>
+            <strong>Code:</strong>
+            {{ session["subject_code"] }}
+        </p>
+
+        <p>
+            <strong>Semester:</strong>
+            {{ session["semester_number"] }}
+        </p>
+
+        <p>
+            <strong>Division:</strong>
+            {{ session["division_name"] }}
+        </p>
+
+    </div>
+
+
+    <div class="card qr">
+
+        <h2>Scan / Enter Current QR</h2>
+
+        <img
+            id="qrImage"
+            src=""
+            alt="Attendance QR"
+        >
+
+        <div
+            id="timer"
+            class="timer"
+        >
+            Loading...
+        </div>
+
+        <div
+            id="token"
+            class="token"
+        >
+            Loading token...
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="count">
+            Present:
+            <span id="presentCount">0</span>
+        </div>
+
+        <h3>Students Present</h3>
+
+        <ul id="studentList"></ul>
+
+    </div>
+
+
+    <div class="card">
+
+        <button
+            class="close"
+            onclick="closeSession()"
+        >
+            🔴 Close Attendance Session
+        </button>
+
+    </div>
+
+</div>
+
+
+<script>
+
+let timerSeconds = 0;
+
+
+async function loadQR() {
+
+    const response = await fetch(
+        "/api/faculty/sessions/{{ session['id'] }}/qr"
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+
+        alert(data.error || "Unable to load QR.");
+
+        return;
+    }
+
+    document.getElementById("qrImage").src =
+        "data:image/png;base64," +
+        data.qr_image;
+
+    document.getElementById("token").innerText =
+        data.token;
+
+    timerSeconds = 25;
+
+    document.getElementById("presentCount").innerText =
+        data.present_count;
+
+    updateStudents(data.present_students);
+}
+
+
+async function loadAttendance() {
+
+    const response = await fetch(
+        "/api/faculty/sessions/{{ session['id'] }}/attendance"
+    );
+
+    if (!response.ok) {
+        return;
+    }
+
+    const data = await response.json();
+
+    document.getElementById("presentCount").innerText =
+        data.present_count;
+
+    updateStudents(data.present_students);
+}
+
+
+function updateStudents(students) {
+
+    const list =
+        document.getElementById("studentList");
+
+    list.innerHTML = "";
+
+    if (students.length === 0) {
+
+        list.innerHTML =
+            "<li>No students present yet.</li>";
+
+        return;
+    }
+
+    students.forEach(function(student) {
+
+        const li = document.createElement("li");
+
+        li.innerText =
+            student.roll_number +
+            " - " +
+            student.name;
+
+        list.appendChild(li);
+
+    });
+}
+
+
+function updateTimer() {
+
+    document.getElementById("timer").innerText =
+        "QR refreshes in " +
+        timerSeconds +
+        " seconds";
+
+    if (timerSeconds > 0) {
+        timerSeconds--;
+    }
+
+    if (timerSeconds <= 0) {
+        timerSeconds = 0;
+    }
+}
+
+
+async function closeSession() {
+
+    const confirmClose =
+        confirm(
+            "Close attendance? Students who are not present will be marked absent."
+        );
+
+    if (!confirmClose) {
+        return;
+    }
+
+    const response = await fetch(
+        "/api/faculty/sessions/{{ session['id'] }}/close",
+        {
+            method: "POST"
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+
+        alert(data.error || "Could not close session.");
+
+        return;
+    }
+
+    alert(
+        "Attendance closed. " +
+        data.absent_count +
+        " students marked absent."
+    );
+
+    window.location.href =
+        "/faculty/dashboard";
+}
+
+
+loadQR();
+
+// New QR every 25s (token is valid for 30s); attendance list every 3s.
+setInterval(loadQR, 25000);
+
+setInterval(loadAttendance, 3000);
+
+setInterval(updateTimer, 1000);
+
+</script>
+
+</body>
+</html>

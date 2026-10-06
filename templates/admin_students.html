@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Class Students{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h1>
+        {{ class_info.department_code }}
+        -
+        Semester {{ class_info.semester_number }}
+        -
+        Division {{ class_info.division_name }}
+    </h1>
+
+    <p>
+        Department:
+        {{ class_info.department_name }}
+    </p>
+
+</div>
+
+
+{% if students %}
+
+    {% for student in students %}
+
+        <div class="card">
+
+            <h3>
+                {{ student.roll_number }}
+                -
+                {{ student.name }}
+            </h3>
+
+            <p>
+                {{ student.email }}
+            </p>
+
+            <a
+                class="button"
+                href="/admin/students/{{ student.id }}"
+            >
+                View Student
+            </a>
+
+        </div>
+
+    {% endfor %}
+
+{% else %}
+
+    <div class="card">
+
+        <p>
+            No students are registered in this class.
+        </p>
+
+    </div>
+
+{% endif %}
+
+
+<div class="card">
+
+    <a class="button" href="/admin/classes">
+        Back to Classes
+    </a>
+
+</div>
+
+{% endblock %}

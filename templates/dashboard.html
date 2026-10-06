@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h1>{{ title }}</h1>
+
+    <div class="info">
+        Logged in as:
+        <strong>{{ current_user.role }}</strong>
+    </div>
+
+    <h3>Welcome, {{ current_user.name }}</h3>
+
+    <p>
+        Email: {{ current_user.email }}
+    </p>
+
+</div>
+
+
+{% if current_user.role == "admin" %}
+
+<div class="card">
+
+    <h2>Administration</h2>
+
+    <p>
+        Manage departments, semesters, classes,
+        subjects, faculty and students.
+    </p>
+
+    <p>
+        Current departments:
+        <strong>{{ counts.departments }}</strong>
+    </p>
+
+    <p>
+        Current faculty:
+        <strong>{{ counts.faculty }}</strong>
+    </p>
+
+    <p>
+        Current students:
+        <strong>{{ counts.students }}</strong>
+    </p>
+
+    <a class="button" href="/admin/dashboard">
+        Open Admin Panel
+    </a>
+
+</div>
+
+{% elif current_user.role == "faculty" %}
+
+<div class="card">
+
+    <h2>Faculty Dashboard</h2>
+
+    <p>
+        Start attendance sessions for your classes and review student leave requests.
+    </p>
+
+    <a class="button" href="/faculty/dashboard">My Classes</a>
+    <a class="button" href="/faculty/leaves">Leave Requests</a>
+
+</div>
+
+{% elif current_user.role == "student" %}
+
+<div class="card">
+
+    <h2>Student Dashboard</h2>
+
+    <p>Mark your attendance, check your percentage and apply for leave.</p>
+
+    <a class="button" href="/student/mark">Mark Attendance</a>
+    <a class="button" href="/student/attendance">My Attendance</a>
+    <a class="button" href="/student/leave">Leave Requests</a>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

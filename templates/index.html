@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}QR Attendance System{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h1>QR Attendance and Management System</h1>
+
+    <p>
+        College attendance management using FastAPI,
+        SQLite and dynamic QR-based attendance.
+    </p>
+
+    <div class="role-links">
+
+        <a class="button" href="/admin/login">
+            Admin Login
+        </a>
+
+        <a class="button" href="/faculty/login">
+            Faculty Login
+        </a>
+
+        <a class="button" href="/student/login">
+            Student Login
+        </a>
+
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>New User?</h2>
+
+    <p>
+        Faculty and students can create their own accounts.
+    </p>
+
+    <a class="button" href="/faculty/register">
+        Faculty Registration
+    </a>
+
+    <a class="button" href="/student/register">
+        Student Registration
+    </a>
+
+</div>
+
+
+<div class="card">
+
+    <h3>Development Demo Account</h3>
+
+    <p>
+        Admin account is seeded during database initialization.
+    </p>
+
+    <p>
+        <strong>Email:</strong>
+        admin@college.local
+    </p>
+
+    <p>
+        <strong>Password:</strong>
+        Admin@12345
+    </p>
+
+</div>
+
+{% endblock %}

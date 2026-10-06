@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Leave Requests{% endblock %}
+
+{% block content %}
+
+<h1 class="page-title">Leave Requests</h1>
+<p class="muted">Requests from students in the classes you teach. Approved leave is excused from the student's attendance percentage.</p>
+
+<div id="message"></div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Class</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="leaveList"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function esc(value) {
+    const div = document.createElement("div");
+    div.textContent = value == null ? "" : String(value);
+    return div.innerHTML;
+}
+
+function fmtDate(value) {
+    if (!value) return "-";
+    const d = new Date(value);
+    return isNaN(d) ? esc(value) : d.toLocaleString([], {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit"
+    });
+}
+
+function badge(status) {
+    if (status === "Approved Leave") return '<span class="badge approved">Approved</span>';
+    if (status === "Rejected Leave") return '<span class="badge rejected">Rejected</span>';
+    return '<span class="badge pending">Pending</span>';
+}
+
+function show(text, ok) {
+    const box = document.getElementById("message");
+    box.className = ok ? "success" : "error";
+    box.textContent = text;
+}
+
+async function readJson(response) {
+    const text = await response.text();
+    if (!text) return {};
+
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        return { detail: "Unexpected server response." };
+    }
+}
+
+async function loadLeaves() {
+    const response = await fetch("/api/faculty/leaves");
+
+    if (!response.ok) {
+        show("Unable to load leave requests.", false);
+        return;
+    }
+
+    const data = await readJson(response);
+    const leaves = Array.isArray(data.leaves) ? data.leaves : [];
+
+    document.getElementById("leaveList").innerHTML = leaves.length
+        ? leaves.map(l => `
+            <tr>
+                <td>${esc(l.student_name)}<br><span class="muted">${esc(l.roll_number)}</span></td>
+                <td>${esc(l.subject_code)} - ${esc(l.subject_name)}<br>
+                    <span class="muted">${esc(l.division_name)} &middot; ${fmtDate(l.started_at)}</span></td>
+                <td style="max-width:280px;white-space:pre-wrap;">${esc(l.reason)}</td>
+                <td>${badge(l.status)}</td>
+                <td>${l.status === "Pending Leave"
+                    ? `<button class="small" onclick="decide(${l.id}, 'Approved')">Approve</button>
+                       <button class="small danger" onclick="decide(${l.id}, 'Rejected')">Reject</button>`
+                    : '<span class="muted">' + fmtDate(l.reviewed_at) + '</span>'}</td>
+            </tr>`).join("")
+        : '<tr><td colspan="5" class="muted">No leave requests yet.</td></tr>';
+}
+
+async function decide(id, status) {
+    const response = await fetch(`/api/faculty/leaves/${id}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+    });
+    const data = await readJson(response);
+
+    show(data.message || data.detail || "Done.", response.ok);
+    if (response.ok) {
+        await loadLeaves();
+    }
+}
+
+loadLeaves();
+</script>
+
+{% endblock %}

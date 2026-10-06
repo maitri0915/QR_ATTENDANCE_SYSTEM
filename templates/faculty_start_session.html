@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>Start Attendance</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f6f8;
+        padding: 30px;
+    }
+
+    .card {
+        max-width: 600px;
+        margin: auto;
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    button {
+        width: 100%;
+        padding: 13px;
+        border: none;
+        border-radius: 7px;
+        cursor: pointer;
+        margin-top: 10px;
+        font-size: 16px;
+    }
+
+    .location {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .start {
+        background: #198754;
+        color: white;
+    }
+
+    .back {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 13px;
+        margin-top: 10px;
+        border-radius: 7px;
+        background: #6c757d;
+        color: white;
+        text-decoration: none;
+        text-align: center;
+        font-size: 16px;
+    }
+
+    .back:hover {
+        opacity: 0.9;
+    }
+
+    input {
+        width: 100%;
+        padding: 10px;
+        margin-top: 6px;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+    }
+
+    #status {
+        padding: 10px;
+        margin-top: 15px;
+        background: #f1f3f5;
+        border-radius: 7px;
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+<div class="card">
+
+```
+<h1>Start Attendance</h1>
+<hr>
+
+<p>
+    <strong>Subject:</strong>
+    {{ assignment["subject_name"] }}
+</p>
+
+<p>
+    <strong>Code:</strong>
+    {{ assignment["subject_code"] }}
+</p>
+
+<p>
+    <strong>Semester:</strong>
+    {{ assignment["semester_number"] }}
+</p>
+
+<p>
+    <strong>Division:</strong>
+    {{ assignment["division_name"] }}
+</p>
+
+<hr>
+
+<h3>Faculty Location</h3>
+
+<p>
+    The session location will be used to check whether students
+    are within the attendance radius.
+</p>
+
+<button
+    type="button"
+    class="location"
+    onclick="getLocation()"
+>
+    📍 Use My Current Location
+</button>
+
+<label for="latitude">Latitude</label>
+<input
+    id="latitude"
+    type="number"
+    step="any"
+>
+
+<label for="longitude">Longitude</label>
+<input
+    id="longitude"
+    type="number"
+    step="any"
+>
+
+<div id="status">
+    Location not selected.
+</div>
+
+<button
+    type="button"
+    class="start"
+    onclick="startSession()"
+>
+    🟢 Start Attendance Session
+</button>
+
+<a
+    class="back"
+    href="/faculty/assignments/{{ assignment['assignment_id'] }}"
+>
+    ← Back to Assignment
+</a>
+```
+
+</div>
+
+<script>
+    const assignmentId = "{{ assignment['assignment_id'] }}";
+
+    function getLocation() {
+
+        const status = document.getElementById("status");
+
+        if (!navigator.geolocation) {
+            status.innerText =
+                "Geolocation is not supported by this browser.";
+            return;
+        }
+
+        status.innerText = "Getting your location...";
+
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+
+                document.getElementById("latitude").value =
+                    position.coords.latitude;
+
+                document.getElementById("longitude").value =
+                    position.coords.longitude;
+
+                status.innerText =
+                    "Location captured successfully.";
+            },
+
+            function(error) {
+
+                status.innerText =
+                    "Location failed. Please allow location access and try again.";
+            }
+        );
+    }
+
+
+    async function startSession() {
+
+        const latitude =
+            document.getElementById("latitude").value;
+
+        const longitude =
+            document.getElementById("longitude").value;
+
+        if (!latitude || !longitude) {
+
+            alert("Please select or enter the faculty location.");
+            return;
+        }
+
+        try {
+
+            const response = await fetch(
+                "/api/faculty/sessions",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        assignment_id: Number(assignmentId),
+                        latitude: Number(latitude),
+                        longitude: Number(longitude)
+                    })
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+
+                if (response.status === 409 && data.session_id) {
+                    const openExisting = confirm(
+                        "An attendance session is already active for this class.\n\n" +
+                        "Do you want to open the active attendance session?"
+                    );
+
+                    if (openExisting) {
+                        window.location.href =
+                            "/faculty/sessions/" +
+                            data.session_id +
+                            "/live";
+                    }
+
+                    return;
+                }
+
+                alert(
+                    data.error ||
+                    "Could not start attendance session."
+                );
+
+                return;
+            }
+
+            window.location.href =
+                "/faculty/sessions/" +
+                data.session_id +
+                "/live";
+
+        } catch (error) {
+
+            alert(
+                "Server error. Please make sure the FastAPI server is running."
+            );
+
+            console.error(error);
+        }
+    }
+</script>
+
+</body>
+</html>

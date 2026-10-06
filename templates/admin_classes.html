@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Classes{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h1>Classes</h1>
+
+    <p>
+        Select a class to view its students.
+    </p>
+
+</div>
+
+
+{% if classes %}
+
+    {% for class_item in classes %}
+
+        <div class="card">
+
+            <h2>
+                {{ class_item.department_code }}
+                -
+                Semester {{ class_item.semester_number }}
+                -
+                Division {{ class_item.division_name }}
+            </h2>
+
+            <p>
+                Department:
+                {{ class_item.department_name }}
+            </p>
+
+            <p>
+                Students:
+                <strong>{{ class_item.student_count }}</strong>
+            </p>
+
+            <a
+                class="button"
+                href="/admin/classes/{{ class_item.id }}/students"
+            >
+                View Students
+            </a>
+
+        </div>
+
+    {% endfor %}
+
+{% else %}
+
+    <div class="card">
+        <p>No classes found.</p>
+    </div>
+
+{% endif %}
+
+
+<div class="card">
+
+    <a class="button" href="/admin/manage">
+        Manage Academic Data
+    </a>
+
+</div>
+
+{% endblock %}

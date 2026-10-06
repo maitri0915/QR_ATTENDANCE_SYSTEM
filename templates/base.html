@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>{% block title %}QR Attendance System{% endblock %}</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        .navbar {
+            background: #1f2937;
+            color: white;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin-left: 15px;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            margin: 35px auto;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .login-card {
+            max-width: 450px;
+            margin: 50px auto;
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        button,
+        .button {
+            display: inline-block;
+            border: none;
+            background: #2563eb;
+            color: white;
+            padding: 11px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            margin-top: 18px;
+        }
+
+        button:hover,
+        .button:hover {
+            background: #1d4ed8;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .role-links {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .role-links a {
+            text-align: center;
+        }
+
+
+        .nav-links a {
+            margin-left: 18px;
+        }
+
+        .nav-links .user {
+            margin-left: 18px;
+            opacity: 0.8;
+        }
+
+        .page-title {
+            margin: 0 0 4px;
+        }
+
+        .muted {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table.data {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table.data th,
+        table.data td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        table.data th {
+            background: #f9fafb;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .badge.present, .badge.approved { background: #dcfce7; color: #166534; }
+        .badge.absent, .badge.rejected  { background: #fee2e2; color: #991b1b; }
+        .badge.leave                    { background: #dbeafe; color: #1e40af; }
+        .badge.pending                  { background: #fef3c7; color: #92400e; }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .stat {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .stat .num {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .bar {
+            background: #e5e7eb;
+            border-radius: 999px;
+            height: 10px;
+            overflow: hidden;
+            position: relative;
+            min-width: 90px;
+        }
+
+        .bar span {
+            display: block;
+            height: 100%;
+            background: #16a34a;
+        }
+
+        .bar.low span {
+            background: #dc2626;
+        }
+
+        .bar .mark {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 75%;
+            width: 2px;
+            background: #111827;
+            opacity: 0.5;
+        }
+
+        .warn {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #dc2626;
+            padding: 12px 14px;
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+
+        .ok-note {
+            background: #dcfce7;
+            color: #166534;
+            border-left: 4px solid #16a34a;
+            padding: 12px 14px;
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+
+        button.small {
+            padding: 6px 12px;
+            margin-top: 0;
+            font-size: 13px;
+        }
+
+        button.danger {
+            background: #dc2626;
+        }
+
+        button.danger:hover {
+            background: #b91c1c;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 90px;
+            padding: 11px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+            font-family: inherit;
+        }
+
+        @media (max-width: 700px) {
+            .role-links {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <strong>QR Attendance System</strong>
+
+        {% if current_user %}
+            <div class="nav-links">
+                {% if current_user.role == "student" %}
+                    <a href="/dashboard">Home</a>
+                    <a href="/student/mark">Mark</a>
+                    <a href="/student/attendance">My Attendance</a>
+                    <a href="/student/leave">Leave</a>
+                {% elif current_user.role == "faculty" %}
+                    <a href="/faculty/dashboard">Classes</a>
+                    <a href="/faculty/leaves">Leave Requests</a>
+                {% endif %}
+                <span class="user">{{ current_user.name }}</span>
+                <a href="/logout">Logout</a>
+            </div>
+        {% endif %}
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+</body>
+</html>

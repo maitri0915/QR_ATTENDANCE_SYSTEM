@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>My Timetable</h1>
+
+<p>Weekly class timetable</p>
+
+<div class="timetable">
+
+{% set days = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday"
+] %}
+
+{% for day in range(7) %}
+
+    <div class="card">
+
+        <h2>{{ days[day] }}</h2>
+
+        {% set found = false %}
+
+        {% for item in timetable %}
+
+            {% if item.day_of_week == day %}
+
+                {% set found = true %}
+
+                <div style="padding:12px; margin:8px 0; border:1px solid #ccc;">
+
+                    <strong>
+                        {{ item.start_time }} - {{ item.end_time }}
+                    </strong>
+
+                    <br>
+
+                    {% if item.entry_type == "HOD_USE" %}
+
+                        {{ item.title }}
+
+                    {% elif item.entry_type == "OTHER" %}
+
+                        {{ item.title }}
+
+                    {% else %}
+
+                        {{ item.subject_code }} -
+                        {{ item.subject_name }}
+
+                        <br>
+
+                        {{ item.department_code }}
+                        -
+                        Sem {{ item.semester_number }}
+
+                        <br>
+
+                        Faculty:
+                        {{ item.faculty_name }}
+
+                        <br>
+
+                        <strong>{{ item.entry_type }}</strong>
+
+                    {% endif %}
+
+                </div>
+
+            {% endif %}
+
+        {% endfor %}
+
+        {% if not found %}
+            <p>Free</p>
+        {% endif %}
+
+    </div>
+
+{% endfor %}
+
+</div>
+
+{% endblock %}

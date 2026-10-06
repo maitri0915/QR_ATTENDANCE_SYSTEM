@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Mark Attendance</h1>
+
+<div class="card">
+
+    <h2>Scan QR Code</h2>
+
+    <div id="reader" style="width:320px; max-width:100%;"></div>
+
+    <button type="button" id="startScanBtn">
+        Start Camera
+    </button>
+
+    <button
+        type="button"
+        id="stopScanBtn"
+        style="display:none;"
+    >
+        Stop Camera
+    </button>
+
+    <p id="status"></p>
+
+    <hr>
+
+    <h3>Manual Token</h3>
+
+    <input
+        type="text"
+        id="token"
+        placeholder="Enter token manually"
+        autocomplete="off"
+    >
+
+    <button type="button" id="manualBtn">
+        Mark Attendance
+    </button>
+
+</div>
+
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+
+const statusBox = document.getElementById("status");
+const startScanBtn = document.getElementById("startScanBtn");
+const stopScanBtn = document.getElementById("stopScanBtn");
+const tokenInput = document.getElementById("token");
+const manualBtn = document.getElementById("manualBtn");
+
+let scanner = null;
+let processing = false;
+let lastToken = null;
+let lastAttempt = 0;
+
+
+/* ---------------------------------------------------------
+   Mark attendance using token + location
+--------------------------------------------------------- */
+
+async function markAttendance(token, manual) {
+
+    if (!token) {
+        statusBox.textContent = "QR token is empty.";
+        return;
+    }
+
+    if (processing) {
+        return;
+    }
+
+    // The camera sees the same QR many times a second; do not
+    // re-submit the same token again for a few seconds.
+    if (!manual && token === lastToken && Date.now() - lastAttempt < 5000) {
+        return;
+    }
+
+    lastToken = token;
+    lastAttempt = Date.now();
+
+    processing = true;
+
+    statusBox.textContent = "Getting your location...";
+
+    if (!navigator.geolocation) {
+
+        statusBox.textContent =
+            "Geolocation is not supported by this browser.";
+
+        processing = false;
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+
+        async function(position) {
+
+            statusBox.textContent =
+                "Checking QR, class and location...";
+
+            try {
+
+                const response = await fetch(
+                    "/api/student/attendance/mark",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            token: token,
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        })
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+
+                    statusBox.textContent =
+                        result.detail ||
+                        "Attendance could not be marked.";
+
+                    processing = false;
+                    return;
+                }
+
+                statusBox.textContent =
+                    result.message +
+                    " " +
+                    result.subject +
+                    " (" +
+                    result.subject_code +
+                    ") — " +
+                    result.distance_m +
+                    " m away.";
+
+                tokenInput.value = "";
+
+                stopScanner();
+
+            }
+            catch (error) {
+
+                console.error(error);
+
+                statusBox.textContent =
+                    "Something went wrong. Please try again.";
+            }
+
+            processing = false;
+        },
+
+        function(error) {
+
+            console.error(error);
+
+            statusBox.textContent =
+                "Location permission is required to mark attendance.";
+
+            processing = false;
+        },
+
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        }
+    );
+}
+
+
+/* ---------------------------------------------------------
+   QR Scanner
+--------------------------------------------------------- */
+
+function startScanner() {
+
+    if (scanner) {
+        return;
+    }
+
+    statusBox.textContent =
+        "Starting camera...";
+
+    scanner = new Html5Qrcode("reader");
+
+    scanner.start(
+
+        { facingMode: "environment" },
+
+        {
+            fps: 10,
+            qrbox: {
+                width: 250,
+                height: 250
+            }
+        },
+
+        function(decodedText) {
+
+            if (processing) {
+                return;
+            }
+
+            statusBox.textContent =
+                "QR scanned. Verifying...";
+
+            markAttendance(decodedText);
+        },
+
+        function(errorMessage) {
+            // Ignore normal scanning errors.
+        }
+
+    ).then(function() {
+
+        startScanBtn.style.display = "none";
+        stopScanBtn.style.display = "inline-block";
+
+        statusBox.textContent =
+            "Point the camera at the faculty QR code.";
+
+    }).catch(function(error) {
+
+        console.error(error);
+
+        scanner = null;
+
+        statusBox.textContent =
+            "Could not start camera. Please allow camera permission.";
+
+    });
+}
+
+
+/* ---------------------------------------------------------
+   Stop scanner
+--------------------------------------------------------- */
+
+function stopScanner() {
+
+    if (!scanner) {
+        return;
+    }
+
+    scanner.stop()
+        .then(function() {
+
+            scanner.clear();
+
+            scanner = null;
+
+            startScanBtn.style.display = "inline-block";
+            stopScanBtn.style.display = "none";
+
+        })
+        .catch(function(error) {
+
+            console.error(error);
+
+            scanner = null;
+
+            startScanBtn.style.display = "inline-block";
+            stopScanBtn.style.display = "none";
+        });
+}
+
+
+/* ---------------------------------------------------------
+   Buttons
+--------------------------------------------------------- */
+
+startScanBtn.addEventListener(
+    "click",
+    startScanner
+);
+
+stopScanBtn.addEventListener(
+    "click",
+    stopScanner
+);
+
+manualBtn.addEventListener(
+    "click",
+    function() {
+
+        const token =
+            tokenInput.value.trim();
+
+        markAttendance(token, true);
+    }
+);
+
+</script>
+
+{% endblock %}

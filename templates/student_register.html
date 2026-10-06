@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Student Registration{% endblock %}
+
+{% block content %}
+
+<div class="card login-card">
+
+    <h2>Student Registration</h2>
+
+    {% if error %}
+        <div class="error">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="post">
+
+        <label for="name">Full Name</label>
+
+        <input
+            type="text"
+            id="name"
+            name="name"
+            required
+            maxlength="100"
+        >
+
+
+        <label for="roll_number">Roll Number</label>
+
+        <input
+            type="text"
+            id="roll_number"
+            name="roll_number"
+            required
+            maxlength="30"
+        >
+
+
+        <label for="email">Email</label>
+
+        <input
+            type="email"
+            id="email"
+            name="email"
+            required
+        >
+
+
+        <label for="password">Password</label>
+
+        <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            minlength="8"
+        >
+
+
+        <label for="department_id">Department</label>
+
+        <select
+            id="department_id"
+            name="department_id"
+            required
+        >
+            <option value="">Select Department</option>
+
+            {% for department in departments %}
+                <option value="{{ department.id }}">
+                    {{ department.code }} - {{ department.name }}
+                </option>
+            {% endfor %}
+        </select>
+
+
+        <label for="semester_id">Semester</label>
+
+        <select
+            id="semester_id"
+            name="semester_id"
+            required
+        >
+            <option value="">Select Semester</option>
+
+            {% for semester in semesters %}
+                <option
+                    value="{{ semester.id }}"
+                    data-department="{{ semester.department_id }}"
+                >
+                    Semester {{ semester.number }}
+                </option>
+            {% endfor %}
+        </select>
+
+
+        <label for="division_id">Division / Class</label>
+
+        <select
+            id="division_id"
+            name="division_id"
+            required
+        >
+            <option value="">Select Division</option>
+
+            {% for division in divisions %}
+                <option
+                    value="{{ division.id }}"
+                    data-department="{{ division.department_id }}"
+                    data-semester="{{ division.semester_id }}"
+                >
+                    {{ division.name }}
+                </option>
+            {% endfor %}
+        </select>
+
+
+        <button type="submit">
+            Register
+        </button>
+
+    </form>
+
+</div>
+
+
+<script>
+
+const departmentSelect =
+    document.getElementById("department_id");
+
+const semesterSelect =
+    document.getElementById("semester_id");
+
+const divisionSelect =
+    document.getElementById("division_id");
+
+
+function filterSemesters() {
+
+    const departmentId =
+        departmentSelect.value;
+
+    for (const option of semesterSelect.options) {
+
+        if (!option.value) {
+            continue;
+        }
+
+        option.hidden =
+            option.dataset.department !== departmentId;
+    }
+
+    semesterSelect.value = "";
+
+    filterDivisions();
+}
+
+
+function filterDivisions() {
+
+    const departmentId =
+        departmentSelect.value;
+
+    const semesterId =
+        semesterSelect.value;
+
+    for (const option of divisionSelect.options) {
+
+        if (!option.value) {
+            continue;
+        }
+
+        option.hidden =
+            option.dataset.department !== departmentId ||
+            option.dataset.semester !== semesterId;
+    }
+
+    divisionSelect.value = "";
+}
+
+
+departmentSelect.addEventListener(
+    "change",
+    filterSemesters
+);
+
+
+semesterSelect.addEventListener(
+    "change",
+    filterDivisions
+);
+
+</script>
+
+{% endblock %}
