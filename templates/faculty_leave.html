@@ -5,108 +5,456 @@
 {% block content %}
 
 <h1 class="page-title">Leave Requests</h1>
-<p class="muted">Requests from students in the classes you teach. Approved leave is excused from the student's attendance percentage.</p>
+
+<p class="muted">
+    Review leave requests submitted by students for upcoming classes.
+    Approved leave counts as Present in the student's attendance percentage.
+</p>
 
 <div id="message"></div>
 
+
 <div class="card">
+
     <div class="table-wrap">
+
         <table class="data">
+
             <thead>
                 <tr>
                     <th>Student</th>
-                    <th>Class</th>
+                    <th>Upcoming Class</th>
                     <th>Reason</th>
                     <th>Status</th>
                     <th>Action</th>
                 </tr>
             </thead>
+
             <tbody id="leaveList"></tbody>
+
         </table>
+
     </div>
+
 </div>
 
+
 <script>
+
 function esc(value) {
+
     const div = document.createElement("div");
-    div.textContent = value == null ? "" : String(value);
+
+    div.textContent =
+        value == null ? "" : String(value);
+
     return div.innerHTML;
 }
 
+
+// ============================================================
+// DATE / TIME FORMATTING
+// ============================================================
+
 function fmtDate(value) {
+
     if (!value) return "-";
+
     const d = new Date(value);
-    return isNaN(d) ? esc(value) : d.toLocaleString([], {
-        day: "2-digit", month: "short", year: "numeric",
-        hour: "2-digit", minute: "2-digit"
+
+    if (isNaN(d)) {
+        return esc(value);
+    }
+
+    return d.toLocaleDateString([], {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
     });
 }
 
-function badge(status) {
-    if (status === "Approved Leave") return '<span class="badge approved">Approved</span>';
-    if (status === "Rejected Leave") return '<span class="badge rejected">Rejected</span>';
-    return '<span class="badge pending">Pending</span>';
+
+function fmtSubmitted(value) {
+
+    if (!value) return "-";
+
+    const d = new Date(value);
+
+    if (isNaN(d)) {
+        return esc(value);
+    }
+
+    return d.toLocaleString([], {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
 }
 
+
+// ============================================================
+// STATUS BADGE
+// ============================================================
+
+function badge(status) {
+
+    if (status === "Approved Leave") {
+
+        return `
+            <span class="badge approved">
+                Approved
+            </span>
+        `;
+    }
+
+    if (status === "Rejected Leave") {
+
+        return `
+            <span class="badge rejected">
+                Rejected
+            </span>
+        `;
+    }
+
+    return `
+        <span class="badge pending">
+            Pending
+        </span>
+    `;
+}
+
+
+// ============================================================
+// MESSAGE
+// ============================================================
+
 function show(text, ok) {
-    const box = document.getElementById("message");
-    box.className = ok ? "success" : "error";
+
+    const box =
+        document.getElementById("message");
+
+    box.className =
+        ok ? "success" : "error";
+
     box.textContent = text;
 }
 
+
+// ============================================================
+// SAFE JSON READER
+// ============================================================
+
 async function readJson(response) {
-    const text = await response.text();
-    if (!text) return {};
+
+    const text =
+        await response.text();
+
+    if (!text) {
+        return {};
+    }
 
     try {
+
         return JSON.parse(text);
+
     } catch (error) {
-        return { detail: "Unexpected server response." };
+
+        return {
+            detail:
+                "Unexpected server response."
+        };
     }
 }
 
-async function loadLeaves() {
-    const response = await fetch("/api/faculty/leaves");
 
-    if (!response.ok) {
-        show("Unable to load leave requests.", false);
+// ============================================================
+// LOAD LEAVE REQUESTS
+// ============================================================
+
+async function loadLeaves() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/faculty/leaves"
+            );
+
+        if (!response.ok) {
+
+            show(
+                "Unable to load leave requests.",
+                false
+            );
+
+            return;
+        }
+
+        const data =
+            await readJson(response);
+
+        const leaves =
+            Array.isArray(data.leaves)
+                ? data.leaves
+                : [];
+
+        const tbody =
+            document.getElementById(
+                "leaveList"
+            );
+
+
+        if (!leaves.length) {
+
+            tbody.innerHTML = `
+                <tr>
+                    <td
+                        colspan="5"
+                        class="muted"
+                    >
+                        No leave requests yet.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+
+        tbody.innerHTML =
+            leaves.map(l => {
+
+                // ------------------------------------------------
+                // Student
+                // ------------------------------------------------
+
+                const studentCell = `
+                    ${esc(l.student_name)}
+                    <br>
+                    <span class="muted">
+                        Roll No: ${esc(l.roll_number)}
+                    </span>
+                `;
+
+
+                // ------------------------------------------------
+                // Upcoming lecture
+                // ------------------------------------------------
+
+                const classCell = `
+                    <strong>
+                        ${esc(l.subject_code)}
+                        -
+                        ${esc(l.subject_name)}
+                    </strong>
+
+                    <br>
+
+                    <span class="muted">
+                        ${esc(l.division_name)}
+                    </span>
+
+                    <br>
+
+                    <span class="muted">
+                        ${fmtDate(l.lecture_date)}
+                        &middot;
+                        ${esc(l.start_time || "")}
+                        -
+                        ${esc(l.end_time || "")}
+                    </span>
+                `;
+
+
+                // ------------------------------------------------
+                // Reason
+                // ------------------------------------------------
+
+                const reasonCell = `
+                    <div
+                        style="
+                            max-width:280px;
+                            white-space:pre-wrap;
+                        "
+                    >
+                        ${esc(l.reason)}
+                    </div>
+                `;
+
+
+                // ------------------------------------------------
+                // Action
+                // ------------------------------------------------
+
+                let actionCell = "";
+
+                if (
+                    l.status ===
+                    "Pending Leave"
+                ) {
+
+                    actionCell = `
+                        <button
+                            class="small"
+                            onclick="decide(
+                                ${Number(l.id)},
+                                'Approved'
+                            )"
+                        >
+                            Approve
+                        </button>
+
+                        <button
+                            class="small danger"
+                            onclick="decide(
+                                ${Number(l.id)},
+                                'Rejected'
+                            )"
+                        >
+                            Reject
+                        </button>
+                    `;
+
+                } else {
+
+                    actionCell = `
+                        <span class="muted">
+                            Reviewed:
+                            ${fmtSubmitted(
+                                l.reviewed_at
+                            )}
+                        </span>
+                    `;
+                }
+
+
+                return `
+                    <tr>
+
+                        <td>
+                            ${studentCell}
+                        </td>
+
+                        <td>
+                            ${classCell}
+                        </td>
+
+                        <td>
+                            ${reasonCell}
+                        </td>
+
+                        <td>
+                            ${badge(l.status)}
+                        </td>
+
+                        <td>
+                            ${actionCell}
+                        </td>
+
+                    </tr>
+                `;
+
+            }).join("");
+
+
+    } catch (error) {
+
+        console.error(
+            "Failed to load leave requests:",
+            error
+        );
+
+        show(
+            "Server error while loading leave requests.",
+            false
+        );
+    }
+}
+
+
+// ============================================================
+// APPROVE / REJECT
+// ============================================================
+
+async function decide(id, status) {
+
+    const action =
+        status === "Approved"
+            ? "approve"
+            : "reject";
+
+
+    const confirmed =
+        confirm(
+            `Are you sure you want to ${action} this leave request?`
+        );
+
+    if (!confirmed) {
         return;
     }
 
-    const data = await readJson(response);
-    const leaves = Array.isArray(data.leaves) ? data.leaves : [];
 
-    document.getElementById("leaveList").innerHTML = leaves.length
-        ? leaves.map(l => `
-            <tr>
-                <td>${esc(l.student_name)}<br><span class="muted">${esc(l.roll_number)}</span></td>
-                <td>${esc(l.subject_code)} - ${esc(l.subject_name)}<br>
-                    <span class="muted">${esc(l.division_name)} &middot; ${fmtDate(l.started_at)}</span></td>
-                <td style="max-width:280px;white-space:pre-wrap;">${esc(l.reason)}</td>
-                <td>${badge(l.status)}</td>
-                <td>${l.status === "Pending Leave"
-                    ? `<button class="small" onclick="decide(${l.id}, 'Approved')">Approve</button>
-                       <button class="small danger" onclick="decide(${l.id}, 'Rejected')">Reject</button>`
-                    : '<span class="muted">' + fmtDate(l.reviewed_at) + '</span>'}</td>
-            </tr>`).join("")
-        : '<tr><td colspan="5" class="muted">No leave requests yet.</td></tr>';
-}
+    try {
 
-async function decide(id, status) {
-    const response = await fetch(`/api/faculty/leaves/${id}/decision`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
-    });
-    const data = await readJson(response);
+        const response =
+            await fetch(
+                `/api/faculty/leaves/${id}/decision`,
+                {
+                    method: "POST",
 
-    show(data.message || data.detail || "Done.", response.ok);
-    if (response.ok) {
-        await loadLeaves();
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        status: status
+                    })
+                }
+            );
+
+
+        const data =
+            await readJson(response);
+
+
+        show(
+            data.message ||
+            data.detail ||
+            "Done.",
+            response.ok
+        );
+
+
+        if (response.ok) {
+
+            await loadLeaves();
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Leave decision error:",
+            error
+        );
+
+        show(
+            "Server error. Please try again.",
+            false
+        );
     }
 }
 
+
+// ============================================================
+// INITIAL LOAD
+// ============================================================
+
 loadLeaves();
+
 </script>
 
 {% endblock %}

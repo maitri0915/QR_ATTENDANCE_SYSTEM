@@ -4,6 +4,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+
 from admin import router as admin_router
 from faculty import router as faculty_router
 from student import router as student_router
@@ -26,10 +27,13 @@ templates = Jinja2Templates(
 )
 
 
+# ============================================================
+# APPLICATION STARTUP
+# ============================================================
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-
     yield
 
 
@@ -50,9 +54,15 @@ app.add_middleware(
     https_only=False,
 )
 
+
 app.include_router(admin_router)
 app.include_router(faculty_router)
 app.include_router(student_router)
+
+
+# ============================================================
+# COMMON DATABASE HELPERS
+# ============================================================
 
 def get_departments():
     conn = get_connection()
@@ -108,6 +118,11 @@ def get_divisions():
     finally:
         conn.close()
 
+
+# ============================================================
+# HOME
+# ============================================================
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
 
@@ -128,12 +143,20 @@ def home(request: Request):
     )
 
 
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+
 @app.get("/health")
 def health():
     return {
         "status": "ok"
     }
 
+
+# ============================================================
+# LOGIN PAGE HELPER
+# ============================================================
 
 def login_page(
     request: Request,
@@ -153,6 +176,10 @@ def login_page(
     )
 
 
+# ============================================================
+# ADMIN LOGIN
+# ============================================================
+
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request):
 
@@ -169,6 +196,79 @@ def admin_login_page(request: Request):
         role="admin",
         role_name="Admin",
     )
+
+
+@app.post("/admin/login", response_class=HTMLResponse)
+def admin_login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+):
+
+    email = email.strip().lower()
+
+    conn = get_connection()
+
+    try:
+        admin = conn.execute(
+            """
+            SELECT
+                id,
+                name,
+                email,
+                password_hash,
+                is_active
+            FROM admins
+            WHERE email = ? COLLATE NOCASE
+            """,
+            (email,),
+        ).fetchone()
+
+    finally:
+        conn.close()
+
+    if admin is None:
+        return login_page(
+            request,
+            "admin",
+            "Admin",
+            "Invalid email or password.",
+        )
+
+    if admin["is_active"] != 1:
+        return login_page(
+            request,
+            "admin",
+            "Admin",
+            "This account is inactive.",
+        )
+
+    if not verify_password(
+        password,
+        admin["password_hash"]
+    ):
+        return login_page(
+            request,
+            "admin",
+            "Admin",
+            "Invalid email or password.",
+        )
+
+    login_user(
+        request,
+        admin,
+        "admin",
+    )
+
+    return RedirectResponse(
+        url="/dashboard",
+        status_code=303,
+    )
+
+
+# ============================================================
+# FACULTY REGISTRATION PAGE
+# ============================================================
 
 @app.get("/faculty/register", response_class=HTMLResponse)
 def faculty_register_page(request: Request):
@@ -192,6 +292,10 @@ def faculty_register_page(request: Request):
     )
 
 
+# ============================================================
+# FACULTY REGISTRATION
+# ============================================================
+
 @app.post("/faculty/register", response_class=HTMLResponse)
 def faculty_register(
     request: Request,
@@ -206,31 +310,39 @@ def faculty_register(
     employee_id = employee_id.strip()
     email = email.strip().lower()
 
+    page_context = {
+        "current_user": None,
+        "departments": get_departments(),
+        "error": None,
+    }
+
     if len(name) < 2:
+        page_context["error"] = "Please enter a valid name."
+
         return templates.TemplateResponse(
             request=request,
             name="faculty_register.html",
-            context={
-                "current_user": None,
-                "departments": get_departments(),
-                "error": "Please enter a valid name.",
-            },
+            context=page_context,
         )
 
     if len(password) < 8:
+        page_context["error"] = (
+            "Password must contain at least 8 characters."
+        )
+
         return templates.TemplateResponse(
             request=request,
             name="faculty_register.html",
-            context={
-                "current_user": None,
-                "departments": get_departments(),
-                "error": "Password must contain at least 8 characters.",
-            },
+            context=page_context,
         )
 
     conn = get_connection()
 
     try:
+
+        # ----------------------------------------------------
+        # Validate department
+        # ----------------------------------------------------
 
         department = conn.execute(
             """
@@ -242,39 +354,69 @@ def faculty_register(
         ).fetchone()
 
         if department is None:
+            page_context["error"] = (
+                "Selected department does not exist."
+            )
+
             return templates.TemplateResponse(
                 request=request,
                 name="faculty_register.html",
-                context={
-                    "current_user": None,
-                    "departments": get_departments(),
-                    "error": "Selected department does not exist.",
-                },
+                context=page_context,
             )
 
-        existing_email = conn.execute(
+        # ----------------------------------------------------
+        # Check email across faculty and students
+        # ----------------------------------------------------
+
+        existing_faculty_email = conn.execute(
             """
             SELECT id
-            FROM users
+            FROM faculty_profiles
             WHERE email = ? COLLATE NOCASE
             """,
             (email,),
         ).fetchone()
 
-        if existing_email:
+        existing_student_email = conn.execute(
+            """
+            SELECT id
+            FROM student_profiles
+            WHERE email = ? COLLATE NOCASE
+            """,
+            (email,),
+        ).fetchone()
+
+        existing_admin_email = conn.execute(
+            """
+            SELECT id
+            FROM admins
+            WHERE email = ? COLLATE NOCASE
+            """,
+            (email,),
+        ).fetchone()
+
+        if (
+            existing_faculty_email
+            or existing_student_email
+            or existing_admin_email
+        ):
+            page_context["error"] = (
+                "This email is already registered."
+            )
+
             return templates.TemplateResponse(
                 request=request,
                 name="faculty_register.html",
-                context={
-                    "current_user": None,
-                    "departments": get_departments(),
-                    "error": "This email is already registered.",
-                },
+                context=page_context,
             )
+
+        # ----------------------------------------------------
+        # Check employee ID
+        # ----------------------------------------------------
 
         existing_employee = conn.execute(
             """
-            SELECT user_id
+            SELECT id
             FROM faculty_profiles
             WHERE employee_id = ? COLLATE NOCASE
             """,
@@ -282,50 +424,39 @@ def faculty_register(
         ).fetchone()
 
         if existing_employee:
+            page_context["error"] = (
+                "This employee ID is already registered."
+            )
+
             return templates.TemplateResponse(
                 request=request,
                 name="faculty_register.html",
-                context={
-                    "current_user": None,
-                    "departments": get_departments(),
-                    "error": "This employee ID is already registered.",
-                },
+                context=page_context,
             )
+
+        # ----------------------------------------------------
+        # Create faculty profile
+        # ----------------------------------------------------
 
         password_hash = hash_password(password)
-
-        cursor = conn.execute(
-            """
-            INSERT INTO users
-            (
-                name,
-                email,
-                password_hash,
-                role
-            )
-            VALUES (?, ?, ?, 'faculty')
-            """,
-            (
-                name,
-                email,
-                password_hash,
-            ),
-        )
-
-        user_id = cursor.lastrowid
 
         conn.execute(
             """
             INSERT INTO faculty_profiles
             (
-                user_id,
+                name,
+                email,
+                password_hash,
                 employee_id,
-                department_id
+                department_id,
+                is_active
             )
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, 1)
             """,
             (
-                user_id,
+                name,
+                email,
+                password_hash,
                 employee_id,
                 department_id,
             ),
@@ -336,14 +467,14 @@ def faculty_register(
     except Exception:
         conn.rollback()
 
+        page_context["error"] = (
+            "Registration failed. Please check your details."
+        )
+
         return templates.TemplateResponse(
             request=request,
             name="faculty_register.html",
-            context={
-                "current_user": None,
-                "departments": get_departments(),
-                "error": "Registration failed. Please check your details.",
-            },
+            context=page_context,
         )
 
     finally:
@@ -353,6 +484,11 @@ def faculty_register(
         url="/faculty/login",
         status_code=303,
     )
+
+
+# ============================================================
+# STUDENT REGISTRATION PAGE
+# ============================================================
 
 @app.get("/student/register", response_class=HTMLResponse)
 def student_register_page(request: Request):
@@ -378,6 +514,10 @@ def student_register_page(request: Request):
     )
 
 
+# ============================================================
+# STUDENT REGISTRATION
+# ============================================================
+
 @app.post("/student/register", response_class=HTMLResponse)
 def student_register(
     request: Request,
@@ -399,6 +539,7 @@ def student_register(
         "departments": get_departments(),
         "semesters": get_semesters(),
         "divisions": get_divisions(),
+        "error": None,
     }
 
     if len(name) < 2:
@@ -425,9 +566,9 @@ def student_register(
 
     try:
 
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
         # Validate department
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
 
         department = conn.execute(
             """
@@ -449,9 +590,9 @@ def student_register(
                 context=page_context,
             )
 
-        # ---------------------------------------------------------
-        # Validate semester belongs to department
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
+        # Validate semester
+        # ----------------------------------------------------
 
         semester = conn.execute(
             """
@@ -478,9 +619,9 @@ def student_register(
                 context=page_context,
             )
 
-        # ---------------------------------------------------------
-        # Validate division belongs to department + semester
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
+        # Validate division
+        # ----------------------------------------------------
 
         division = conn.execute(
             """
@@ -509,20 +650,42 @@ def student_register(
                 context=page_context,
             )
 
-        # ---------------------------------------------------------
-        # Check email
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
+        # Check email across all account tables
+        # ----------------------------------------------------
 
-        existing_email = conn.execute(
+        existing_admin_email = conn.execute(
             """
             SELECT id
-            FROM users
+            FROM admins
             WHERE email = ? COLLATE NOCASE
             """,
             (email,),
         ).fetchone()
 
-        if existing_email:
+        existing_faculty_email = conn.execute(
+            """
+            SELECT id
+            FROM faculty_profiles
+            WHERE email = ? COLLATE NOCASE
+            """,
+            (email,),
+        ).fetchone()
+
+        existing_student_email = conn.execute(
+            """
+            SELECT id
+            FROM student_profiles
+            WHERE email = ? COLLATE NOCASE
+            """,
+            (email,),
+        ).fetchone()
+
+        if (
+            existing_admin_email
+            or existing_faculty_email
+            or existing_student_email
+        ):
             page_context["error"] = (
                 "This email is already registered."
             )
@@ -533,13 +696,13 @@ def student_register(
                 context=page_context,
             )
 
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
         # Check roll number
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
 
         existing_roll = conn.execute(
             """
-            SELECT user_id
+            SELECT id
             FROM student_profiles
             WHERE roll_number = ? COLLATE NOCASE
             """,
@@ -557,50 +720,31 @@ def student_register(
                 context=page_context,
             )
 
-        # ---------------------------------------------------------
-        # Create user
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
+        # Create student profile
+        # ----------------------------------------------------
 
         password_hash = hash_password(password)
-
-        cursor = conn.execute(
-            """
-            INSERT INTO users
-            (
-                name,
-                email,
-                password_hash,
-                role
-            )
-            VALUES (?, ?, ?, 'student')
-            """,
-            (
-                name,
-                email,
-                password_hash,
-            ),
-        )
-
-        user_id = cursor.lastrowid
-
-        # ---------------------------------------------------------
-        # Create student profile
-        # ---------------------------------------------------------
 
         conn.execute(
             """
             INSERT INTO student_profiles
             (
-                user_id,
+                name,
+                email,
+                password_hash,
                 roll_number,
                 department_id,
                 semester_id,
-                division_id
+                division_id,
+                is_active
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
             """,
             (
-                user_id,
+                name,
+                email,
+                password_hash,
                 roll_number,
                 department_id,
                 semester_id,
@@ -631,66 +775,10 @@ def student_register(
         status_code=303,
     )
 
-@app.post("/admin/login", response_class=HTMLResponse)
-def admin_login(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-):
 
-    conn = get_connection()
-
-    try:
-        user = conn.execute(
-            """
-            SELECT
-                id,
-                name,
-                email,
-                password_hash,
-                role,
-                is_active
-            FROM users
-            WHERE email = ? COLLATE NOCASE
-              AND role = 'admin'
-            """,
-            (email.strip(),),
-        ).fetchone()
-
-    finally:
-        conn.close()
-
-    if user is None:
-        return login_page(
-            request,
-            "admin",
-            "Admin",
-            "Invalid email or password.",
-        )
-
-    if user["is_active"] != 1:
-        return login_page(
-            request,
-            "admin",
-            "Admin",
-            "This account is inactive.",
-        )
-
-    if not verify_password(password, user["password_hash"]):
-        return login_page(
-            request,
-            "admin",
-            "Admin",
-            "Invalid email or password.",
-        )
-
-    login_user(request, user)
-
-    return RedirectResponse(
-        url="/dashboard",
-        status_code=303,
-    )
-
+# ============================================================
+# FACULTY LOGIN PAGE
+# ============================================================
 
 @app.get("/faculty/login", response_class=HTMLResponse)
 def faculty_login_page(request: Request):
@@ -710,6 +798,10 @@ def faculty_login_page(request: Request):
     )
 
 
+# ============================================================
+# FACULTY LOGIN
+# ============================================================
+
 @app.post("/faculty/login", response_class=HTMLResponse)
 def faculty_login(
     request: Request,
@@ -717,29 +809,29 @@ def faculty_login(
     password: str = Form(...),
 ):
 
+    email = email.strip().lower()
+
     conn = get_connection()
 
     try:
-        user = conn.execute(
+        faculty = conn.execute(
             """
             SELECT
                 id,
                 name,
                 email,
                 password_hash,
-                role,
                 is_active
-            FROM users
+            FROM faculty_profiles
             WHERE email = ? COLLATE NOCASE
-              AND role = 'faculty'
             """,
-            (email.strip(),),
+            (email,),
         ).fetchone()
 
     finally:
         conn.close()
 
-    if user is None:
+    if faculty is None:
         return login_page(
             request,
             "faculty",
@@ -747,7 +839,7 @@ def faculty_login(
             "Invalid email or password.",
         )
 
-    if user["is_active"] != 1:
+    if faculty["is_active"] != 1:
         return login_page(
             request,
             "faculty",
@@ -755,7 +847,10 @@ def faculty_login(
             "This account is inactive.",
         )
 
-    if not verify_password(password, user["password_hash"]):
+    if not verify_password(
+        password,
+        faculty["password_hash"]
+    ):
         return login_page(
             request,
             "faculty",
@@ -763,13 +858,21 @@ def faculty_login(
             "Invalid email or password.",
         )
 
-    login_user(request, user)
+    login_user(
+        request,
+        faculty,
+        "faculty",
+    )
 
     return RedirectResponse(
         url="/dashboard",
         status_code=303,
     )
 
+
+# ============================================================
+# STUDENT LOGIN PAGE
+# ============================================================
 
 @app.get("/student/login", response_class=HTMLResponse)
 def student_login_page(request: Request):
@@ -789,6 +892,10 @@ def student_login_page(request: Request):
     )
 
 
+# ============================================================
+# STUDENT LOGIN
+# ============================================================
+
 @app.post("/student/login", response_class=HTMLResponse)
 def student_login(
     request: Request,
@@ -796,29 +903,29 @@ def student_login(
     password: str = Form(...),
 ):
 
+    email = email.strip().lower()
+
     conn = get_connection()
 
     try:
-        user = conn.execute(
+        student = conn.execute(
             """
             SELECT
                 id,
                 name,
                 email,
                 password_hash,
-                role,
                 is_active
-            FROM users
+            FROM student_profiles
             WHERE email = ? COLLATE NOCASE
-              AND role = 'student'
             """,
-            (email.strip(),),
+            (email,),
         ).fetchone()
 
     finally:
         conn.close()
 
-    if user is None:
+    if student is None:
         return login_page(
             request,
             "student",
@@ -826,7 +933,7 @@ def student_login(
             "Invalid email or password.",
         )
 
-    if user["is_active"] != 1:
+    if student["is_active"] != 1:
         return login_page(
             request,
             "student",
@@ -834,7 +941,10 @@ def student_login(
             "This account is inactive.",
         )
 
-    if not verify_password(password, user["password_hash"]):
+    if not verify_password(
+        password,
+        student["password_hash"]
+    ):
         return login_page(
             request,
             "student",
@@ -842,13 +952,21 @@ def student_login(
             "Invalid email or password.",
         )
 
-    login_user(request, user)
+    login_user(
+        request,
+        student,
+        "student",
+    )
 
     return RedirectResponse(
         url="/dashboard",
         status_code=303,
     )
 
+
+# ============================================================
+# DASHBOARD
+# ============================================================
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
@@ -872,6 +990,7 @@ def dashboard(request: Request):
         conn = get_connection()
 
         try:
+
             counts["departments"] = conn.execute(
                 """
                 SELECT COUNT(*)
@@ -882,16 +1001,16 @@ def dashboard(request: Request):
             counts["faculty"] = conn.execute(
                 """
                 SELECT COUNT(*)
-                FROM users
-                WHERE role = 'faculty'
+                FROM faculty_profiles
+                WHERE is_active = 1
                 """
             ).fetchone()[0]
 
             counts["students"] = conn.execute(
                 """
                 SELECT COUNT(*)
-                FROM users
-                WHERE role = 'student'
+                FROM student_profiles
+                WHERE is_active = 1
                 """
             ).fetchone()[0]
 
@@ -910,6 +1029,10 @@ def dashboard(request: Request):
         },
     )
 
+
+# ============================================================
+# LOGOUT
+# ============================================================
 
 @app.get("/logout")
 def logout(request: Request):

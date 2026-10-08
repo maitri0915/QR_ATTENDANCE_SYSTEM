@@ -23,33 +23,43 @@ def verify_password(password: str, stored_hash: str) -> bool:
 
 def get_current_user(request: Request) -> Optional[dict]:
     """
-    Get the currently authenticated user from the session.
+    Get the currently authenticated account from the session.
+
+    The session can contain an admin, faculty, or student account.
 
     Returns:
-        User dictionary if logged in.
+        Account dictionary if logged in.
         None if not logged in.
     """
 
-    user = request.session.get("user")
+    account = request.session.get("user")
 
-    if not user:
+    if not account:
         return None
 
-    return user
+    return account
 
 
-def login_user(request: Request, user: dict) -> None:
+def login_user(request: Request, account: dict, role: str) -> None:
     """
-    Store only the necessary user information in the session.
+    Store the authenticated account in the session.
+
+    role must be:
+        admin
+        faculty
+        student
     """
+
+    if role not in ("admin", "faculty", "student"):
+        raise ValueError("Invalid account role.")
 
     request.session.clear()
 
     request.session["user"] = {
-        "id": user["id"],
-        "name": user["name"],
-        "email": user["email"],
-        "role": user["role"],
+        "id": account["id"],
+        "name": account["name"],
+        "email": account["email"],
+        "role": role,
     }
 
 

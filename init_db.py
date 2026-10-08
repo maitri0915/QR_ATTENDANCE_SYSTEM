@@ -8,6 +8,9 @@ DEMO_ADMIN_PASSWORD = "Admin@12345"
 
 
 def seed_demo_admin() -> None:
+    """
+    Create the demo admin account if it does not already exist.
+    """
 
     password_hash = PasswordHash.recommended().hash(
         DEMO_ADMIN_PASSWORD
@@ -16,11 +19,10 @@ def seed_demo_admin() -> None:
     conn = get_connection()
 
     try:
-
         existing = conn.execute(
             """
             SELECT id
-            FROM users
+            FROM admins
             WHERE email = ? COLLATE NOCASE
             """,
             (DEMO_ADMIN_EMAIL,),
@@ -30,14 +32,14 @@ def seed_demo_admin() -> None:
 
             conn.execute(
                 """
-                INSERT INTO users
+                INSERT INTO admins
                 (
                     name,
                     email,
                     password_hash,
-                    role
+                    is_active
                 )
-                VALUES (?, ?, ?, 'admin')
+                VALUES (?, ?, ?, 1)
                 """,
                 (
                     "Demo Administrator",
@@ -58,6 +60,9 @@ def seed_demo_admin() -> None:
 
 
 def seed_demo_academic_data() -> None:
+    """
+    Create the basic demo academic structure.
+    """
 
     conn = get_connection()
 
@@ -149,7 +154,7 @@ def seed_demo_academic_data() -> None:
                 )
 
         # ---------------------------------------------------------
-        # Demo subjects
+        # Demo subjects for Semester 5
         # ---------------------------------------------------------
 
         semester_5 = conn.execute(

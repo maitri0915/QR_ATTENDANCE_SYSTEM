@@ -11,9 +11,13 @@ router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="templates")
 
 
+# ============================================================
+# ADMIN AUTH
+# ============================================================
+
 def get_admin_user(request: Request):
     """
-    Return the logged-in user only if the user is an admin.
+    Return the logged-in account only if it is an admin.
     Otherwise return None.
     """
 
@@ -34,6 +38,10 @@ def admin_redirect():
         status_code=303,
     )
 
+
+# ============================================================
+# ADMIN DASHBOARD
+# ============================================================
 
 @router.get(
     "/dashboard",
@@ -90,16 +98,16 @@ def admin_dashboard(request: Request):
         faculty_count = conn.execute(
             """
             SELECT COUNT(*)
-            FROM users
-            WHERE role = 'faculty'
+            FROM faculty_profiles
+            WHERE is_active = 1
             """
         ).fetchone()[0]
 
         student_count = conn.execute(
             """
             SELECT COUNT(*)
-            FROM users
-            WHERE role = 'student'
+            FROM student_profiles
+            WHERE is_active = 1
             """
         ).fetchone()[0]
 
@@ -120,6 +128,10 @@ def admin_dashboard(request: Request):
         },
     )
 
+
+# ============================================================
+# ADMIN MANAGE PAGE
+# ============================================================
 
 @router.get(
     "/manage",
@@ -156,8 +168,10 @@ def admin_manage_page(request: Request):
                 departments.name AS department_name,
                 departments.code AS department_code
             FROM semesters
+
             JOIN departments
                 ON departments.id = semesters.department_id
+
             ORDER BY
                 departments.name,
                 semesters.number
@@ -174,10 +188,13 @@ def admin_manage_page(request: Request):
                 departments.code AS department_code,
                 semesters.number AS semester_number
             FROM divisions
+
             JOIN departments
                 ON departments.id = divisions.department_id
+
             JOIN semesters
                 ON semesters.id = divisions.semester_id
+
             ORDER BY
                 departments.name,
                 semesters.number,
@@ -196,10 +213,13 @@ def admin_manage_page(request: Request):
                 departments.code AS department_code,
                 semesters.number AS semester_number
             FROM subjects
+
             JOIN departments
                 ON departments.id = subjects.department_id
+
             JOIN semesters
                 ON semesters.id = subjects.semester_id
+
             ORDER BY
                 departments.name,
                 semesters.number,
@@ -210,19 +230,22 @@ def admin_manage_page(request: Request):
         faculty = conn.execute(
             """
             SELECT
-                users.id,
-                users.name,
-                users.email,
+                faculty_profiles.id,
+                faculty_profiles.name,
+                faculty_profiles.email,
                 faculty_profiles.employee_id,
+
                 departments.name AS department_name,
                 departments.code AS department_code
-            FROM users
-            JOIN faculty_profiles
-                ON faculty_profiles.user_id = users.id
+
+            FROM faculty_profiles
+
             JOIN departments
                 ON departments.id = faculty_profiles.department_id
-            WHERE users.role = 'faculty'
-            ORDER BY users.name
+
+            WHERE faculty_profiles.is_active = 1
+
+            ORDER BY faculty_profiles.name
             """
         ).fetchall()
 
@@ -245,7 +268,7 @@ def admin_manage_page(request: Request):
 
                 departments.code AS department_code,
 
-                users.name AS faculty_name
+                faculty_profiles.name AS faculty_name
 
             FROM timetable
 
@@ -261,14 +284,25 @@ def admin_manage_page(request: Request):
             LEFT JOIN departments
                 ON departments.id = divisions.department_id
 
-            LEFT JOIN users
-                ON users.id = timetable.faculty_user_id
+            LEFT JOIN faculty_profiles
+                ON faculty_profiles.id = timetable.faculty_id
 
             ORDER BY
                 timetable.day_of_week,
                 timetable.start_time
             """
         ).fetchall()
+
+        college_location = conn.execute(
+            """
+            SELECT
+                latitude,
+                longitude,
+                radius_meters
+            FROM college_settings
+            WHERE id = 1
+            """
+        ).fetchone()
 
     finally:
         conn.close()
@@ -284,9 +318,14 @@ def admin_manage_page(request: Request):
             "subjects": subjects,
             "faculty": faculty,
             "timetable": timetable,
+            "college_location": college_location,
         },
     )
 
+
+# ============================================================
+# CREATE DEPARTMENT
+# ============================================================
 
 @router.post("/departments/create")
 def create_department(
@@ -353,6 +392,10 @@ def create_department(
         status_code=303,
     )
 
+
+# ============================================================
+# CREATE SEMESTER
+# ============================================================
 
 @router.post("/semesters/create")
 def create_semester(
@@ -432,6 +475,10 @@ def create_semester(
     )
 
 
+# ============================================================
+# CREATE DIVISION
+# ============================================================
+
 @router.post("/divisions/create")
 def create_division(
     request: Request,
@@ -446,6 +493,12 @@ def create_division(
         return admin_redirect()
 
     name = name.strip().upper()
+
+    if not name:
+        return RedirectResponse(
+            url="/admin/manage",
+            status_code=303,
+        )
 
     conn = get_connection()
 
@@ -515,6 +568,10 @@ def create_division(
     )
 
 
+# ============================================================
+# CREATE SUBJECT
+# ============================================================
+
 @router.post("/subjects/create")
 def create_subject(
     request: Request,
@@ -531,6 +588,12 @@ def create_subject(
 
     name = name.strip()
     code = code.strip().upper()
+
+    if not name or not code:
+        return RedirectResponse(
+            url="/admin/manage",
+            status_code=303,
+        )
 
     conn = get_connection()
 
@@ -602,10 +665,14 @@ def create_subject(
     )
 
 
+# ============================================================
+# CREATE FACULTY ASSIGNMENT
+# ============================================================
+
 @router.post("/assignments/create")
 def create_assignment(
     request: Request,
-    faculty_user_id: int = Form(...),
+    faculty_id: int = Form(...),
     subject_id: int = Form(...),
     division_id: int = Form(...),
 ):
@@ -619,19 +686,16 @@ def create_assignment(
 
     try:
 
-        # ---------------------------------------------------------
-        # Get faculty department
-        # ---------------------------------------------------------
-
         faculty = conn.execute(
             """
             SELECT
-                user_id,
+                id,
                 department_id
             FROM faculty_profiles
-            WHERE user_id = ?
+            WHERE id = ?
+              AND is_active = 1
             """,
-            (faculty_user_id,),
+            (faculty_id,),
         ).fetchone()
 
         if faculty is None:
@@ -639,10 +703,6 @@ def create_assignment(
                 url="/admin/manage",
                 status_code=303,
             )
-
-        # ---------------------------------------------------------
-        # Get subject department + semester
-        # ---------------------------------------------------------
 
         subject = conn.execute(
             """
@@ -662,10 +722,6 @@ def create_assignment(
                 status_code=303,
             )
 
-        # ---------------------------------------------------------
-        # Get division department + semester
-        # ---------------------------------------------------------
-
         division = conn.execute(
             """
             SELECT
@@ -684,9 +740,9 @@ def create_assignment(
                 status_code=303,
             )
 
-        # ---------------------------------------------------------
-        # Compatibility check
-        # ---------------------------------------------------------
+        # --------------------------------------------------------
+        # Faculty, subject and division must belong together
+        # --------------------------------------------------------
 
         if faculty["department_id"] != subject["department_id"]:
             return RedirectResponse(
@@ -706,20 +762,16 @@ def create_assignment(
                 status_code=303,
             )
 
-        # ---------------------------------------------------------
-        # Prevent duplicate assignment
-        # ---------------------------------------------------------
-
         existing = conn.execute(
             """
             SELECT id
             FROM faculty_assignments
-            WHERE faculty_user_id = ?
+            WHERE faculty_id = ?
               AND subject_id = ?
               AND division_id = ?
             """,
             (
-                faculty_user_id,
+                faculty_id,
                 subject_id,
                 division_id,
             ),
@@ -731,14 +783,14 @@ def create_assignment(
                 """
                 INSERT INTO faculty_assignments
                 (
-                    faculty_user_id,
+                    faculty_id,
                     subject_id,
                     division_id
                 )
                 VALUES (?, ?, ?)
                 """,
                 (
-                    faculty_user_id,
+                    faculty_id,
                     subject_id,
                     division_id,
                 ),
@@ -754,6 +806,11 @@ def create_assignment(
         status_code=303,
     )
 
+
+# ============================================================
+# CREATE TIMETABLE ENTRY
+# ============================================================
+
 @router.post("/timetable/create")
 def create_timetable(
     request: Request,
@@ -763,7 +820,7 @@ def create_timetable(
     entry_type: str = Form(...),
     division_id: int | None = Form(None),
     subject_id: int | None = Form(None),
-    faculty_user_id: int | None = Form(None),
+    faculty_id: int | None = Form(None),
     title: str = Form(""),
 ):
 
@@ -785,7 +842,7 @@ def create_timetable(
             status_code=303,
         )
 
-    if day_of_week < 0 or day_of_week > 6:
+    if not 0 <= day_of_week <= 5:
         return RedirectResponse(
             url="/admin/manage",
             status_code=303,
@@ -801,10 +858,17 @@ def create_timetable(
 
     try:
 
-        # Lecture or Lab must have faculty, subject and class
+        # --------------------------------------------------------
+        # Lecture / Lab
+        # --------------------------------------------------------
+
         if entry_type in {"LECTURE", "LAB"}:
 
-            if not division_id or not subject_id or not faculty_user_id:
+            if (
+                division_id is None
+                or subject_id is None
+                or faculty_id is None
+            ):
                 return RedirectResponse(
                     url="/admin/manage",
                     status_code=303,
@@ -814,12 +878,12 @@ def create_timetable(
                 """
                 SELECT id
                 FROM faculty_assignments
-                WHERE faculty_user_id = ?
+                WHERE faculty_id = ?
                   AND subject_id = ?
                   AND division_id = ?
                 """,
                 (
-                    faculty_user_id,
+                    faculty_id,
                     subject_id,
                     division_id,
                 ),
@@ -831,11 +895,39 @@ def create_timetable(
                     status_code=303,
                 )
 
+            # Make sure subject and division belong together.
+            valid_subject = conn.execute(
+                """
+                SELECT id
+                FROM subjects
+                WHERE id = ?
+                  AND semester_id = (
+                      SELECT semester_id
+                      FROM divisions
+                      WHERE id = ?
+                  )
+                """,
+                (
+                    subject_id,
+                    division_id,
+                ),
+            ).fetchone()
+
+            if valid_subject is None:
+                return RedirectResponse(
+                    url="/admin/manage",
+                    status_code=303,
+                )
+
+        # --------------------------------------------------------
+        # HOD / Other
+        # --------------------------------------------------------
+
         else:
-            # HOD/Other doesn't need academic assignment
+
             division_id = None
             subject_id = None
-            faculty_user_id = None
+            faculty_id = None
 
             if not title.strip():
                 return RedirectResponse(
@@ -843,18 +935,23 @@ def create_timetable(
                     status_code=303,
                 )
 
-        # Prevent same faculty or same division
-        # from having overlapping entries.
+        # --------------------------------------------------------
+        # Prevent timetable overlap
+        # --------------------------------------------------------
+
         overlap = conn.execute(
             """
             SELECT id
             FROM timetable
+
             WHERE day_of_week = ?
+
               AND start_time < ?
               AND end_time > ?
+
               AND (
                     division_id = ?
-                    OR faculty_user_id = ?
+                    OR faculty_id = ?
                   )
             """,
             (
@@ -862,7 +959,7 @@ def create_timetable(
                 end_time,
                 start_time,
                 division_id,
-                faculty_user_id,
+                faculty_id,
             ),
         ).fetchone()
 
@@ -882,7 +979,7 @@ def create_timetable(
                 entry_type,
                 division_id,
                 subject_id,
-                faculty_user_id,
+                faculty_id,
                 title
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -894,7 +991,7 @@ def create_timetable(
                 entry_type,
                 division_id,
                 subject_id,
-                faculty_user_id,
+                faculty_id,
                 title.strip() or None,
             ),
         )
@@ -909,6 +1006,10 @@ def create_timetable(
         status_code=303,
     )
 
+
+# ============================================================
+# ADMIN CLASSES
+# ============================================================
 
 @router.get(
     "/classes",
@@ -930,16 +1031,19 @@ def admin_classes(request: Request):
             SELECT
                 divisions.id,
                 divisions.name AS division_name,
+
                 departments.id AS department_id,
                 departments.name AS department_name,
                 departments.code AS department_code,
+
                 semesters.id AS semester_id,
                 semesters.number AS semester_number,
 
                 (
                     SELECT COUNT(*)
-                    FROM student_profiles AS sp
+                    FROM student_profiles sp
                     WHERE sp.division_id = divisions.id
+                      AND sp.is_active = 1
                 ) AS student_count
 
             FROM divisions
@@ -970,6 +1074,10 @@ def admin_classes(request: Request):
     )
 
 
+# ============================================================
+# CLASS STUDENTS
+# ============================================================
+
 @router.get(
     "/classes/{division_id}/students",
     response_class=HTMLResponse,
@@ -993,14 +1101,20 @@ def admin_class_students(
             SELECT
                 divisions.id,
                 divisions.name AS division_name,
+
                 departments.name AS department_name,
                 departments.code AS department_code,
+
                 semesters.number AS semester_number
+
             FROM divisions
+
             JOIN departments
                 ON departments.id = divisions.department_id
+
             JOIN semesters
                 ON semesters.id = divisions.semester_id
+
             WHERE divisions.id = ?
             """,
             (division_id,),
@@ -1015,14 +1129,16 @@ def admin_class_students(
         students = conn.execute(
             """
             SELECT
-                users.id,
-                users.name,
-                users.email,
+                student_profiles.id,
+                student_profiles.name,
+                student_profiles.email,
                 student_profiles.roll_number
+
             FROM student_profiles
-            JOIN users
-                ON users.id = student_profiles.user_id
+
             WHERE student_profiles.division_id = ?
+              AND student_profiles.is_active = 1
+
             ORDER BY student_profiles.roll_number
             """,
             (division_id,),
@@ -1042,13 +1158,17 @@ def admin_class_students(
     )
 
 
+# ============================================================
+# STUDENT DETAIL
+# ============================================================
+
 @router.get(
-    "/students/{student_user_id}",
+    "/students/{student_id}",
     response_class=HTMLResponse,
 )
 def admin_student_detail(
     request: Request,
-    student_user_id: int,
+    student_id: int,
 ):
 
     admin = get_admin_user(request)
@@ -1063,31 +1183,32 @@ def admin_student_detail(
         student = conn.execute(
             """
             SELECT
-                users.id,
-                users.name,
-                users.email,
-                student_profiles.roll_number,
+                sp.id,
+                sp.name,
+                sp.email,
+                sp.roll_number,
+
                 departments.name AS department_name,
                 departments.code AS department_code,
-                semesters.number AS semester_number,
-                divisions.name AS division_name
-            FROM student_profiles
 
-            JOIN users
-                ON users.id = student_profiles.user_id
+                semesters.number AS semester_number,
+
+                divisions.name AS division_name
+
+            FROM student_profiles sp
 
             JOIN departments
-                ON departments.id = student_profiles.department_id
+                ON departments.id = sp.department_id
 
             JOIN semesters
-                ON semesters.id = student_profiles.semester_id
+                ON semesters.id = sp.semester_id
 
             JOIN divisions
-                ON divisions.id = student_profiles.division_id
+                ON divisions.id = sp.division_id
 
-            WHERE student_profiles.user_id = ?
+            WHERE sp.id = ?
             """,
-            (student_user_id,),
+            (student_id,),
         ).fetchone()
 
         if student is None:
@@ -1099,47 +1220,78 @@ def admin_student_detail(
         attendance = conn.execute(
             """
             SELECT
-                attendance.marked_at,
-                attendance.status,
-                subjects.name AS subject_name,
-                subjects.code AS subject_code
-            FROM attendance
+                ar.marked_at,
+                ar.status,
+                ar.method,
 
-            JOIN attendance_sessions
-                ON attendance_sessions.id = attendance.session_id
+                s.name AS subject_name,
+                s.code AS subject_code,
 
-            JOIN subjects
-                ON subjects.id = attendance_sessions.subject_id
+                a.lecture_date,
+                t.start_time,
+                t.end_time
 
-            WHERE attendance.student_user_id = ?
+            FROM attendance_records ar
 
-            ORDER BY attendance.marked_at DESC
+            JOIN attendance_sessions a
+                ON a.id = ar.session_id
+
+            JOIN subjects s
+                ON s.id = a.subject_id
+
+            LEFT JOIN timetable t
+                ON t.id = a.timetable_id
+
+            WHERE ar.student_id = ?
+
+            ORDER BY
+                a.lecture_date DESC,
+                ar.marked_at DESC
             """,
-            (student_user_id,),
+            (student_id,),
         ).fetchall()
 
         leaves = conn.execute(
             """
             SELECT
-                leave_requests.reason,
-                leave_requests.status,
-                leave_requests.submitted_at,
-                leave_requests.reviewed_at,
-                subjects.name AS subject_name,
-                subjects.code AS subject_code
-            FROM leave_requests
+                lr.id,
+                lr.reason,
+                lr.status,
+                lr.submitted_at,
+                lr.reviewed_at,
+                lr.lecture_date,
 
-            JOIN attendance_sessions
-                ON attendance_sessions.id = leave_requests.session_id
+                s.name AS subject_name,
+                s.code AS subject_code,
 
-            JOIN subjects
-                ON subjects.id = attendance_sessions.subject_id
+                t.start_time,
+                t.end_time,
 
-            WHERE leave_requests.student_user_id = ?
+                d.name AS division_name,
 
-            ORDER BY leave_requests.submitted_at DESC
+                fp.name AS reviewed_by_name
+
+            FROM leave_requests lr
+
+            JOIN timetable t
+                ON t.id = lr.timetable_id
+
+            JOIN subjects s
+                ON s.id = t.subject_id
+
+            JOIN divisions d
+                ON d.id = t.division_id
+
+            LEFT JOIN faculty_profiles fp
+                ON fp.id = lr.reviewed_by
+
+            WHERE lr.student_id = ?
+
+            ORDER BY
+                lr.lecture_date DESC,
+                lr.submitted_at DESC
             """,
-            (student_user_id,),
+            (student_id,),
         ).fetchall()
 
     finally:
@@ -1157,13 +1309,15 @@ def admin_student_detail(
     )
 
 
+# ============================================================
+# FACULTY LIST
+# ============================================================
+
 @router.get(
     "/faculty",
     response_class=HTMLResponse,
 )
-def admin_faculty(
-    request: Request,
-):
+def admin_faculty(request: Request):
 
     admin = get_admin_user(request)
 
@@ -1177,30 +1331,28 @@ def admin_faculty(
         faculty = conn.execute(
             """
             SELECT
-                users.id,
-                users.name,
-                users.email,
-                faculty_profiles.employee_id,
-                departments.name AS department_name,
-                departments.code AS department_code,
+                fp.id,
+                fp.name,
+                fp.email,
+                fp.employee_id,
+
+                d.name AS department_name,
+                d.code AS department_code,
 
                 (
                     SELECT COUNT(*)
-                    FROM faculty_assignments AS fa
-                    WHERE fa.faculty_user_id = users.id
+                    FROM faculty_assignments fa
+                    WHERE fa.faculty_id = fp.id
                 ) AS assignment_count
 
-            FROM users
+            FROM faculty_profiles fp
 
-            JOIN faculty_profiles
-                ON faculty_profiles.user_id = users.id
+            JOIN departments d
+                ON d.id = fp.department_id
 
-            JOIN departments
-                ON departments.id = faculty_profiles.department_id
+            WHERE fp.is_active = 1
 
-            WHERE users.role = 'faculty'
-
-            ORDER BY users.name
+            ORDER BY fp.name
             """
         ).fetchall()
 
@@ -1217,8 +1369,11 @@ def admin_faculty(
             "divisions": [],
             "subjects": [],
             "faculty": faculty,
+            "timetable": [],
+            "college_location": None,
         },
     )
+
 
 # ============================================================
 # COLLEGE ATTENDANCE LOCATION
@@ -1231,74 +1386,121 @@ async def set_college_location(request: Request):
 
     if not user or user["role"] != "admin":
         return JSONResponse(
-            {"error": "Admin login required."},
-            status_code=401
+            {
+                "error":
+                    "Admin login required."
+            },
+            status_code=401,
         )
 
     try:
+
         data = await request.json()
 
-        latitude = float(data.get("latitude"))
-        longitude = float(data.get("longitude"))
+        latitude = float(
+            data.get("latitude")
+        )
+
+        longitude = float(
+            data.get("longitude")
+        )
+
         radius_meters = float(
-            data.get("radius_meters", 100)
+            data.get(
+                "radius_meters",
+                100,
+            )
         )
 
     except (TypeError, ValueError):
+
         return JSONResponse(
-            {"error": "Invalid location or radius."},
-            status_code=400
+            {
+                "error":
+                    "Invalid location or radius."
+            },
+            status_code=400,
         )
 
-    if not (-90 <= latitude <= 90):
+    if not -90 <= latitude <= 90:
+
         return JSONResponse(
-            {"error": "Invalid latitude."},
-            status_code=400
+            {
+                "error":
+                    "Invalid latitude."
+            },
+            status_code=400,
         )
 
-    if not (-180 <= longitude <= 180):
+    if not -180 <= longitude <= 180:
+
         return JSONResponse(
-            {"error": "Invalid longitude."},
-            status_code=400
+            {
+                "error":
+                    "Invalid longitude."
+            },
+            status_code=400,
         )
 
     if radius_meters <= 0:
+
         return JSONResponse(
-            {"error": "Radius must be greater than 0."},
-            status_code=400
+            {
+                "error":
+                    "Radius must be greater than 0."
+            },
+            status_code=400,
         )
 
     conn = get_connection()
 
-    conn.execute(
-        """
-        INSERT INTO college_settings
-        (
-            id,
-            latitude,
-            longitude,
-            radius_meters
-        )
-        VALUES (1, ?, ?, ?)
-        ON CONFLICT(id)
-        DO UPDATE SET
-            latitude = excluded.latitude,
-            longitude = excluded.longitude,
-            radius_meters = excluded.radius_meters
-        """,
-        (
-            latitude,
-            longitude,
-            radius_meters
-        )
-    )
+    try:
 
-    conn.commit()
-    conn.close()
+        conn.execute(
+            """
+            INSERT INTO college_settings
+            (
+                id,
+                latitude,
+                longitude,
+                radius_meters
+            )
+
+            VALUES (
+                1,
+                ?,
+                ?,
+                ?
+            )
+
+            ON CONFLICT(id)
+            DO UPDATE SET
+
+                latitude =
+                    excluded.latitude,
+
+                longitude =
+                    excluded.longitude,
+
+                radius_meters =
+                    excluded.radius_meters
+            """,
+            (
+                latitude,
+                longitude,
+                radius_meters,
+            ),
+        )
+
+        conn.commit()
+
+    finally:
+        conn.close()
 
     return JSONResponse(
         {
             "success": True,
-            "message": "College attendance location saved."
+            "message":
+                "College attendance location saved.",
         }
     )

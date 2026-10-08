@@ -12,7 +12,7 @@ def get_connection() -> sqlite3.Connection:
     # Return rows that can be accessed by column name.
     conn.row_factory = sqlite3.Row
 
-    # Enforce all foreign-key relationships.
+    # Enforce foreign-key relationships.
     conn.execute("PRAGMA foreign_keys = ON")
 
     return conn
@@ -24,14 +24,20 @@ def init_db() -> None:
     try:
         conn.executescript(
             """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE COLLATE NOCASE,
-                password_hash TEXT NOT NULL,
 
-                role TEXT NOT NULL
-                    CHECK (role IN ('admin', 'faculty', 'student')),
+            /* =========================================================
+               ADMIN
+               ========================================================= */
+
+            CREATE TABLE IF NOT EXISTS admins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                name TEXT NOT NULL,
+
+                email TEXT NOT NULL
+                    UNIQUE COLLATE NOCASE,
+
+                password_hash TEXT NOT NULL,
 
                 is_active INTEGER NOT NULL DEFAULT 1,
 
@@ -39,12 +45,23 @@ def init_db() -> None:
             );
 
 
+            /* =========================================================
+               DEPARTMENT
+               ========================================================= */
+
             CREATE TABLE IF NOT EXISTS departments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+
                 name TEXT NOT NULL UNIQUE,
-                code TEXT NOT NULL UNIQUE COLLATE NOCASE
+
+                code TEXT NOT NULL
+                    UNIQUE COLLATE NOCASE
             );
 
+
+            /* =========================================================
+               SEMESTER
+               ========================================================= */
 
             CREATE TABLE IF NOT EXISTS semesters (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,10 +79,15 @@ def init_db() -> None:
             );
 
 
+            /* =========================================================
+               DIVISION
+               ========================================================= */
+
             CREATE TABLE IF NOT EXISTS divisions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
                 department_id INTEGER NOT NULL,
+
                 semester_id INTEGER NOT NULL,
 
                 name TEXT NOT NULL,
@@ -82,13 +104,19 @@ def init_db() -> None:
             );
 
 
+            /* =========================================================
+               SUBJECT
+               ========================================================= */
+
             CREATE TABLE IF NOT EXISTS subjects (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
                 department_id INTEGER NOT NULL,
+
                 semester_id INTEGER NOT NULL,
 
                 name TEXT NOT NULL,
+
                 code TEXT NOT NULL,
 
                 UNIQUE(department_id, semester_id, code),
@@ -103,16 +131,28 @@ def init_db() -> None:
             );
 
 
-            CREATE TABLE IF NOT EXISTS faculty_profiles (
-                user_id INTEGER PRIMARY KEY,
+            /* =========================================================
+               FACULTY
+               ========================================================= */
 
-                employee_id TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            CREATE TABLE IF NOT EXISTS faculty_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                name TEXT NOT NULL,
+
+                email TEXT NOT NULL
+                    UNIQUE COLLATE NOCASE,
+
+                password_hash TEXT NOT NULL,
+
+                employee_id TEXT NOT NULL
+                    UNIQUE COLLATE NOCASE,
 
                 department_id INTEGER NOT NULL,
 
-                FOREIGN KEY (user_id)
-                    REFERENCES users(id)
-                    ON DELETE CASCADE,
+                is_active INTEGER NOT NULL DEFAULT 1,
+
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                 FOREIGN KEY (department_id)
                     REFERENCES departments(id)
@@ -120,18 +160,32 @@ def init_db() -> None:
             );
 
 
-            CREATE TABLE IF NOT EXISTS student_profiles (
-                user_id INTEGER PRIMARY KEY,
+            /* =========================================================
+               STUDENT
+               ========================================================= */
 
-                roll_number TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            CREATE TABLE IF NOT EXISTS student_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                name TEXT NOT NULL,
+
+                email TEXT NOT NULL
+                    UNIQUE COLLATE NOCASE,
+
+                password_hash TEXT NOT NULL,
+
+                roll_number TEXT NOT NULL
+                    UNIQUE COLLATE NOCASE,
 
                 department_id INTEGER NOT NULL,
+
                 semester_id INTEGER NOT NULL,
+
                 division_id INTEGER NOT NULL,
 
-                FOREIGN KEY (user_id)
-                    REFERENCES users(id)
-                    ON DELETE CASCADE,
+                is_active INTEGER NOT NULL DEFAULT 1,
+
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                 FOREIGN KEY (department_id)
                     REFERENCES departments(id)
@@ -147,21 +201,27 @@ def init_db() -> None:
             );
 
 
+            /* =========================================================
+               FACULTY ASSIGNMENT
+               ========================================================= */
+
             CREATE TABLE IF NOT EXISTS faculty_assignments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                faculty_user_id INTEGER NOT NULL,
+                faculty_id INTEGER NOT NULL,
+
                 subject_id INTEGER NOT NULL,
+
                 division_id INTEGER NOT NULL,
 
                 UNIQUE(
-                    faculty_user_id,
+                    faculty_id,
                     subject_id,
                     division_id
                 ),
 
-                FOREIGN KEY (faculty_user_id)
-                    REFERENCES faculty_profiles(user_id)
+                FOREIGN KEY (faculty_id)
+                    REFERENCES faculty_profiles(id)
                     ON DELETE CASCADE,
 
                 FOREIGN KEY (subject_id)
@@ -174,25 +234,107 @@ def init_db() -> None:
             );
 
 
+            /* =========================================================
+               TIMETABLE
+               ========================================================= */
+
+            CREATE TABLE IF NOT EXISTS timetable (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                division_id INTEGER,
+
+                subject_id INTEGER,
+
+                faculty_id INTEGER,
+
+                day_of_week INTEGER NOT NULL
+                    CHECK (day_of_week BETWEEN 0 AND 6),
+
+                start_time TEXT NOT NULL,
+
+                end_time TEXT NOT NULL,
+
+                entry_type TEXT NOT NULL
+                    DEFAULT 'LECTURE'
+                    CHECK (
+                        entry_type IN (
+                            'LECTURE',
+                            'LAB',
+                            'HOD_USE',
+                            'OTHER'
+                        )
+                    ),
+
+                title TEXT,
+
+                FOREIGN KEY (division_id)
+                    REFERENCES divisions(id)
+                    ON DELETE CASCADE,
+
+                FOREIGN KEY (subject_id)
+                    REFERENCES subjects(id)
+                    ON DELETE CASCADE,
+
+                FOREIGN KEY (faculty_id)
+                    REFERENCES faculty_profiles(id)
+                    ON DELETE SET NULL
+            );
+
+
+            CREATE INDEX IF NOT EXISTS idx_timetable_day
+            ON timetable(day_of_week);
+
+
+            /* =========================================================
+               COLLEGE ATTENDANCE LOCATION
+               ========================================================= */
+
+            CREATE TABLE IF NOT EXISTS college_settings (
+                id INTEGER PRIMARY KEY
+                    CHECK (id = 1),
+
+                latitude REAL NOT NULL,
+
+                longitude REAL NOT NULL,
+
+                radius_meters REAL NOT NULL
+                    DEFAULT 100
+            );
+
+
+            /* =========================================================
+               ATTENDANCE SESSION
+               ========================================================= */
+
             CREATE TABLE IF NOT EXISTS attendance_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                faculty_user_id INTEGER NOT NULL,
+                faculty_id INTEGER NOT NULL,
+
                 subject_id INTEGER NOT NULL,
+
                 division_id INTEGER NOT NULL,
 
                 started_at TEXT NOT NULL,
+
                 closed_at TEXT,
 
                 latitude REAL NOT NULL,
+
                 longitude REAL NOT NULL,
 
-                radius_meters REAL NOT NULL DEFAULT 100,
+                radius_meters REAL NOT NULL
+                    DEFAULT 100,
 
-                is_active INTEGER NOT NULL DEFAULT 1,
+                is_active INTEGER NOT NULL
+                    DEFAULT 1,
 
-                FOREIGN KEY (faculty_user_id)
-                    REFERENCES faculty_profiles(user_id)
+                timetable_id INTEGER,
+
+                lecture_date TEXT,
+
+                FOREIGN KEY (faculty_id)
+                    REFERENCES faculty_profiles(id)
                     ON DELETE RESTRICT,
 
                 FOREIGN KEY (subject_id)
@@ -201,9 +343,21 @@ def init_db() -> None:
 
                 FOREIGN KEY (division_id)
                     REFERENCES divisions(id)
-                    ON DELETE RESTRICT
+                    ON DELETE RESTRICT,
+
+                FOREIGN KEY (timetable_id)
+                    REFERENCES timetable(id)
+                    ON DELETE SET NULL
             );
 
+
+            CREATE INDEX IF NOT EXISTS idx_attendance_session_occurrence
+            ON attendance_sessions(timetable_id, lecture_date);
+
+
+            /* =========================================================
+               QR TOKEN
+               ========================================================= */
 
             CREATE TABLE IF NOT EXISTS qr_tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -213,6 +367,7 @@ def init_db() -> None:
                 token_hash TEXT NOT NULL,
 
                 valid_from TEXT NOT NULL,
+
                 expires_at TEXT NOT NULL,
 
                 FOREIGN KEY (session_id)
@@ -225,38 +380,67 @@ def init_db() -> None:
             ON qr_tokens(session_id, expires_at);
 
 
-            CREATE TABLE IF NOT EXISTS attendance (
+            /* =========================================================
+               ATTENDANCE RECORD
+               ========================================================= */
+
+            CREATE TABLE IF NOT EXISTS attendance_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
                 session_id INTEGER NOT NULL,
-                student_user_id INTEGER NOT NULL,
+
+                student_id INTEGER NOT NULL,
+
+                status TEXT NOT NULL
+                    CHECK (status IN ('present', 'absent')),
+
+                method TEXT NOT NULL,
 
                 marked_at TEXT NOT NULL,
 
-                status TEXT NOT NULL DEFAULT 'Present'
-                    CHECK (status = 'Present'),
+                marked_by INTEGER,
 
-                UNIQUE(session_id, student_user_id),
+                latitude REAL,
+
+                longitude REAL,
+
+                distance_m REAL,
+
+                UNIQUE(session_id, student_id),
 
                 FOREIGN KEY (session_id)
                     REFERENCES attendance_sessions(id)
                     ON DELETE CASCADE,
 
-                FOREIGN KEY (student_user_id)
-                    REFERENCES student_profiles(user_id)
-                    ON DELETE RESTRICT
+                FOREIGN KEY (student_id)
+                    REFERENCES student_profiles(id)
+                    ON DELETE RESTRICT,
+
+                FOREIGN KEY (marked_by)
+                    REFERENCES faculty_profiles(id)
+                    ON DELETE SET NULL
             );
 
+
+            /* =========================================================
+               LEAVE REQUEST
+               ========================================================= */
 
             CREATE TABLE IF NOT EXISTS leave_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                student_user_id INTEGER NOT NULL,
-                session_id INTEGER NOT NULL,
+                student_id INTEGER NOT NULL,
+
+                session_id INTEGER,
+
+                timetable_id INTEGER,
+
+                lecture_date TEXT,
 
                 reason TEXT NOT NULL,
 
-                status TEXT NOT NULL DEFAULT 'Pending Leave'
+                status TEXT NOT NULL
+                    DEFAULT 'Pending Leave'
                     CHECK (
                         status IN (
                             'Pending Leave',
@@ -265,26 +449,36 @@ def init_db() -> None:
                         )
                     ),
 
-                submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                submitted_at TEXT NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP,
 
                 reviewed_at TEXT,
 
                 reviewed_by INTEGER,
 
-                FOREIGN KEY (student_user_id)
-                    REFERENCES student_profiles(user_id)
+                FOREIGN KEY (student_id)
+                    REFERENCES student_profiles(id)
                     ON DELETE CASCADE,
 
                 FOREIGN KEY (session_id)
                     REFERENCES attendance_sessions(id)
+                    ON DELETE SET NULL,
+
+                FOREIGN KEY (timetable_id)
+                    REFERENCES timetable(id)
                     ON DELETE CASCADE,
 
                 FOREIGN KEY (reviewed_by)
-                    REFERENCES users(id)
+                    REFERENCES faculty_profiles(id)
                     ON DELETE SET NULL,
 
-                UNIQUE(student_user_id, session_id)
+                UNIQUE(
+                    student_id,
+                    timetable_id,
+                    lecture_date
+                )
             );
+
             """
         )
 
