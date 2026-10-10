@@ -15,7 +15,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---- Branding (shown across the site) -------------------------------------
 APP_NAME = os.getenv("APP_NAME", "AttendEase").strip() or "AttendEase"
-COLLEGE_NAME = os.getenv("COLLEGE_NAME", "Your College").strip() or "Your College"
+COLLEGE_NAME = os.getenv("COLLEGE_NAME", "방탄소년단 University").strip() or "방탄소년단 University"
 SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", "").strip()
 
 # ---- Security -------------------------------------------------------------
