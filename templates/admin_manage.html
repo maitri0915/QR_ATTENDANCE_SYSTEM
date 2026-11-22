@@ -25,41 +25,44 @@
 
 
     <!-- Quick navigation -->
-    <div class="management-nav">
-        <a href="#departments">
-            <i class="bi bi-diagram-3"></i>
-            Departments
-        </a>
+    <!-- Tab Navigation -->
+<ul class="nav nav-pills management-nav mb-4" id="managementTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="departments-tab" data-bs-toggle="tab" data-bs-target="#departments" type="button" role="tab">
+            <i class="bi bi-diagram-3 me-1"></i> Departments
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="semesters-tab" data-bs-toggle="tab" data-bs-target="#semesters" type="button" role="tab">
+            <i class="bi bi-layers me-1"></i> Semesters
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="divisions-tab" data-bs-toggle="tab" data-bs-target="#divisions" type="button" role="tab">
+            <i class="bi bi-people me-1"></i> Divisions
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="subjects-tab" data-bs-toggle="tab" data-bs-target="#subjects" type="button" role="tab">
+            <i class="bi bi-journal-bookmark me-1"></i> Subjects
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="faculty-tab" data-bs-toggle="tab" data-bs-target="#faculty" type="button" role="tab">
+            <i class="bi bi-person-workspace me-1"></i> Faculty
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="timetable-tab" data-bs-toggle="tab" data-bs-target="#timetable" type="button" role="tab">
+            <i class="bi bi-calendar-week me-1"></i> Timetable
+        </button>
+    </li>
+</ul>
 
-        <a href="#semesters">
-            <i class="bi bi-layers"></i>
-            Semesters
-        </a>
-
-        <a href="#divisions">
-            <i class="bi bi-people"></i>
-            Divisions
-        </a>
-
-        <a href="#subjects">
-            <i class="bi bi-journal-bookmark"></i>
-            Subjects
-        </a>
-
-        <a href="#faculty">
-            <i class="bi bi-person-workspace"></i>
-            Faculty
-        </a>
-
-        <a href="#timetable">
-            <i class="bi bi-calendar-week"></i>
-            Timetable
-        </a>
-    </div>
-
+    <div class="tab-content" id="managementTabsContent">
 
     <!-- Departments -->
-    <section class="management-section" id="departments">
+    <section class="management-section tab-pane fade show active" id="departments" role="tabpanel" aria-labelledby="departments-tab">
 
         <div class="management-section-heading">
             <div class="management-section-icon">
@@ -163,7 +166,7 @@
 
 
     <!-- Semesters -->
-    <section class="management-section" id="semesters">
+    <section class="management-section tab-pane fade" id="semesters" role="tabpanel" aria-labelledby="semesters-tab">
 
         <div class="management-section-heading">
             <div class="management-section-icon">
@@ -277,7 +280,7 @@
 
 
     <!-- Divisions -->
-    <section class="management-section" id="divisions">
+    <section class="management-section tab-pane fade" id="divisions" role="tabpanel" aria-labelledby="divisions-tab">
 
         <div class="management-section-heading">
             <div class="management-section-icon">
@@ -418,7 +421,7 @@
 
 
     <!-- Subjects -->
-    <section class="management-section" id="subjects">
+    <section class="management-section tab-pane fade" id="subjects" role="tabpanel" aria-labelledby="subjects-tab">
 
         <div class="management-section-heading">
             <div class="management-section-icon">
@@ -569,7 +572,7 @@
 
 
     <!-- Faculty -->
-    <section class="management-section" id="faculty">
+    <section class="management-section tab-pane fade" id="faculty" role="tabpanel" aria-labelledby="faculty-tab">
 
         <div class="management-section-heading">
             <div class="management-section-icon">
@@ -632,7 +635,7 @@
 
 
     <!-- Timetable -->
-    <section class="management-section" id="timetable">
+    <section class="management-section tab-pane fade" id="timetable" role="tabpanel" aria-labelledby="timetable-tab">
 
         <div class="management-section-heading">
             <div class="management-section-icon">
@@ -955,6 +958,7 @@
 
     </section>
 
+    </div><!-- /#managementTabsContent -->
 
     <!-- Footer actions -->
     <div class="management-footer-actions">
@@ -975,4 +979,28 @@
 
 {% block extra_js %}
 <script src="/static/js/admin.js" defer></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Save active tab on click
+    const tabButtons = document.querySelectorAll('#managementTabs button[data-bs-toggle="tab"]');
+    tabButtons.forEach(btn => {
+        btn.addEventListener('shown.bs.tab', function (e) {
+            localStorage.setItem('activeManagementTab', e.target.getAttribute('data-bs-target'));
+        });
+    });
+
+    // Restore active tab after form submission/reload
+    const savedTab = localStorage.getItem('activeManagementTab');
+    if (savedTab) {
+        const targetBtn = Array.from(tabButtons).find(
+            btn => btn.getAttribute('data-bs-target') === savedTab
+        );
+
+        if (targetBtn && window.bootstrap?.Tab) {
+            bootstrap.Tab.getOrCreateInstance(targetBtn).show();
+        }
+    }
+});
+</script>
+
 {% endblock %}
