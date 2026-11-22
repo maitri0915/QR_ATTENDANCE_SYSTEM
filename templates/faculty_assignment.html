@@ -4,10 +4,10 @@
 
 {% block content %}
 
-<section class="role-dashboard faculty-dashboard">
+<section class="role-dashboard faculty-dashboard d-flex flex-column gap-4">
 
     <!-- Page header -->
-    <div class="role-page-header">
+    <div class="role-page-header mb-2">
         <div>
             <span class="section-label">FACULTY PORTAL</span>
             <h1>Class Details</h1>
@@ -23,9 +23,9 @@
     </div>
 
     <!-- Assignment overview -->
-    <article class="faculty-class-overview">
+    <article class="faculty-class-overview p-4">
 
-        <div class="faculty-class-overview-header">
+        <div class="faculty-class-overview-header" mb-4>
 
             <div class="faculty-class-subject-icon">
                 <i class="bi bi-book-half"></i>
@@ -38,7 +38,7 @@
 
                 <h2>{{ assignment["subject_name"] }}</h2>
 
-                <p>
+                <p class-"mb-0">
                     Semester {{ assignment["semester_number"] }}
                     <span class="class-title-divider">/</span>
                     Division {{ assignment["division_name"] }}
@@ -47,7 +47,7 @@
 
         </div>
 
-        <div class="faculty-class-meta">
+        <div class="faculty-class-meta d-flex flex-wrap gap-4 mb-4">
 
             <div>
                 <span>
@@ -84,7 +84,7 @@
         </div>
 
         <!-- Class actions -->
-        <div class="faculty-class-actions">
+        <div class="faculty-class-actions d-flex flex-wrap gap-3">
 
             <a
                 class="btn faculty-primary-btn"
@@ -110,7 +110,7 @@
     <!-- Student directory -->
     <section class="management-section">
 
-        <div class="management-section-heading">
+        <div class="management-section-heading mb-3">
 
             <div class="management-section-icon">
                 <i class="bi bi-people"></i>
@@ -126,7 +126,7 @@
 
         </div>
 
-        <article class="management-panel">
+        <article class="management-panel p-4">
 
             {% if students %}
 
