@@ -62,3 +62,27 @@ One deployment now serves many universities, each fully isolated.
 **New env vars** - `PLATFORM_ADMIN_NAME/EMAIL/PASSWORD`, optional `PLATFORM_DATABASE_PATH`, `TENANT_DIR`, `PLATFORM_LABEL`.
 
 `python init_db.py --demo` also creates an approved "Demo University" with sample data.
+
+
+## Permanent storage with Turso
+
+Hosts such as Render's free plan erase local files whenever the service restarts. With Turso the
+data lives in a hosted database instead, so nothing is lost.
+
+- The **platform database** (universities, super admin) is the Turso database in `TURSO_DATABASE_URL`.
+- Every approved university automatically gets **its own Turso database** (`attendease-<slug>`), created
+  through the Turso API when the super admin clicks Approve.
+
+| Variable | What it is |
+|---|---|
+| `TURSO_DATABASE_URL` | `libsql://...` URL of the platform database |
+| `TURSO_AUTH_TOKEN` | **Database token** - must be a *group* token so it also opens the university databases |
+| `TURSO_ORG` | Your Turso organisation (account) name |
+| `TURSO_API_TOKEN` | **Account (API) token** - lets the app create/delete university databases |
+| `TURSO_GROUP` | Group the databases live in (default `default`) |
+
+Set them in `.env` locally and under **Environment** on Render (never commit `.env`).
+`python turso_setup.py check` tests the settings; `python turso_setup.py group-token` creates the
+`TURSO_AUTH_TOKEN` value. Also set `SESSION_SECRET_KEY` so logins survive a restart.
+
+The app talks to Turso over its HTTPS API (`turso_client.py`), so no extra package is needed.

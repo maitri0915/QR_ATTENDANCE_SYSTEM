@@ -44,7 +44,10 @@ async def lifespan(app: FastAPI):
     platform_db.migrate_legacy_database()
     # Apply (idempotent) schema updates to every university database.
     for tenant in platform_db.list_active_tenants():
-        init_db(tenant.db_path)
+        try:
+            init_db(tenant.db_path)
+        except Exception as exc:  # one unreachable university must not stop the app
+            print(f"WARNING: could not prepare database of '{tenant.slug}': {exc}")
     yield
 
 

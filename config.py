@@ -59,3 +59,28 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 PLATFORM_DB_PATH = Path(os.getenv("PLATFORM_DATABASE_PATH", DATA_DIR / "platform.db"))
 TENANT_DIR = Path(os.getenv("TENANT_DIR", DATA_DIR / "tenants"))
 TENANT_DIR.mkdir(parents=True, exist_ok=True)
+
+# ---- Turso (hosted libSQL) - keeps data when the host's disk is wiped -------
+# TURSO_DATABASE_URL  the PLATFORM database (universities + super admins)
+# TURSO_AUTH_TOKEN    token valid for the platform AND every university database
+#                     (a "group token"; see README / turso_setup.py)
+# TURSO_ORG, TURSO_API_TOKEN, TURSO_GROUP   used to create one Turso database
+#                     for each approved university
+TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL", "").strip()
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+TURSO_ORG = os.getenv("TURSO_ORG", "").strip()
+TURSO_API_TOKEN = os.getenv("TURSO_API_TOKEN", "").strip()
+TURSO_GROUP = os.getenv("TURSO_GROUP", "default").strip() or "default"
+TURSO_DB_PREFIX = os.getenv("TURSO_DB_PREFIX", "attendease").strip().lower() or "attendease"
+
+TURSO_ENABLED = bool(TURSO_DATABASE_URL)
+if TURSO_ENABLED and not TURSO_AUTH_TOKEN:
+    # Refuse to fall back silently to local files - on a host with a temporary
+    # disk that would lose all data again.
+    raise RuntimeError(
+        "TURSO_DATABASE_URL is set but TURSO_AUTH_TOKEN is missing. "
+        "Add the token or remove TURSO_DATABASE_URL to use local files."
+    )
+
+# Where the platform database lives: Turso URL, or a local file.
+PLATFORM_TARGET = TURSO_DATABASE_URL if TURSO_ENABLED else PLATFORM_DB_PATH

@@ -4,10 +4,14 @@ file per university (see tenancy.py / database.py)."""
 
 import re
 import sqlite3
+import threading
+import time
 from pathlib import Path
 from typing import Optional
 
 import config
+import turso_admin
+import turso_client
 from auth import hash_password
 from database import connect, init_db as init_tenant_db
 from tenancy import Tenant
@@ -15,8 +19,20 @@ from tenancy import Tenant
 STATUSES = ("pending", "approved", "rejected", "suspended")
 
 
-def get_platform_connection() -> sqlite3.Connection:
-    return connect(config.PLATFORM_DB_PATH)
+def get_platform_connection():
+    return connect(config.PLATFORM_TARGET)
+
+
+# On Turso every lookup is a network call, so the per-request university check
+# is cached for a few seconds. Suspending takes effect within CACHE_SECONDS.
+CACHE_SECONDS = 10
+_tenant_cache: dict = {}
+_cache_lock = threading.Lock()
+
+
+def _invalidate_cache() -> None:
+    with _cache_lock:
+        _tenant_cache.clear()
 
 
 def init_platform_db() -> None:
@@ -132,7 +148,9 @@ def get_platform_admin(admin_id: int) -> Optional[dict]:
 # University lookup
 # ---------------------------------------------------------------------------
 
-def _tenant_path(value: str) -> Path:
+def _tenant_path(value: str):
+    if turso_client.is_remote(value):
+        return value
     path = Path(value)
     return path if path.is_absolute() else config.TENANT_DIR / path
 
@@ -148,16 +166,29 @@ def get_active_tenant(slug: str) -> Optional[Tenant]:
     """The university for a slug, only while its status is 'approved'."""
     if not slug:
         return None
+    slug = slug.strip().lower()
+
+    if config.TURSO_ENABLED:
+        with _cache_lock:
+            hit = _tenant_cache.get(slug)
+        if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+            return hit[1]
+
     conn = get_platform_connection()
     try:
         row = conn.execute(
             "SELECT id, name, slug, db_path FROM universities "
             "WHERE slug = ? AND status = 'approved' AND db_path IS NOT NULL",
-            (slug.strip().lower(),),
+            (slug,),
         ).fetchone()
-        return _row_to_tenant(row) if row else None
+        tenant = _row_to_tenant(row) if row else None
     finally:
         conn.close()
+
+    if config.TURSO_ENABLED:
+        with _cache_lock:
+            _tenant_cache[slug] = (time.monotonic(), tenant)
+    return tenant
 
 
 def list_active_tenants() -> list:
@@ -234,7 +265,7 @@ def tenant_usage(db_path: Optional[str]) -> dict:
     if not db_path:
         return usage
     path = _tenant_path(db_path)
-    if not path.exists():
+    if isinstance(path, Path) and not path.exists():
         return usage
     try:
         conn = connect(path)
@@ -341,10 +372,28 @@ def _audit(conn, university_id, actor_id, action, note=None):
     )
 
 
+def _wait_until_ready(target, tries: int = 20) -> None:
+    """A brand-new Turso database can take a few seconds to accept queries."""
+    last = None
+    for _ in range(tries):
+        try:
+            c = connect(target)
+            try:
+                c.execute("SELECT 1").fetchone()
+                return
+            finally:
+                c.close()
+        except sqlite3.Error as exc:
+            last = exc
+            time.sleep(1.5)
+    raise sqlite3.OperationalError(f"The new university database did not become ready: {last}")
+
+
 def approve_university(university_id: int, actor_id: int) -> Optional[str]:
     """Create the university's own database and its first administrator."""
     conn = get_platform_connection()
     db_file = None
+    remote_name = None      # set only if THIS call created the Turso database
     try:
         uni = conn.execute("SELECT * FROM universities WHERE id = ?", (university_id,)).fetchone()
         if not uni:
@@ -354,14 +403,30 @@ def approve_university(university_id: int, actor_id: int) -> Optional[str]:
         if not uni["admin_password_hash"]:
             return "This request has no stored administrator password."
 
-        filename = f"{uni['slug']}.db"
-        db_file = config.TENANT_DIR / filename
-        if db_file.exists():
-            return "A database file for this university already exists; resolve it manually."
+        if config.TURSO_ENABLED:
+            try:
+                name = turso_admin.database_name(uni["slug"])
+                host, created = turso_admin.create_database(name)
+            except turso_admin.TursoAdminError as exc:
+                return f"Could not create the university's Turso database: {exc}"
+            if created:
+                remote_name = name
+            target = stored = host if host.startswith("http") else f"libsql://{host}"
+            _wait_until_ready(target)
+        else:
+            stored = f"{uni['slug']}.db"
+            db_file = config.TENANT_DIR / stored
+            if db_file.exists():
+                return "A database file for this university already exists; resolve it manually."
+            target = db_file
 
-        init_tenant_db(db_file)
-        tconn = connect(db_file)
+        init_tenant_db(target)
+        tconn = connect(target)
         try:
+            if config.TURSO_ENABLED and not created:
+                if tconn.execute("SELECT COUNT(*) FROM admins").fetchone()[0]:
+                    return (f"A Turso database named '{name}' already exists and contains "
+                            "data; resolve it manually.")
             tconn.execute(
                 "INSERT INTO admins (name, email, password_hash, is_active) VALUES (?, ?, ?, 1)",
                 (uni["admin_name"], uni["admin_email"], uni["admin_password_hash"]),
@@ -377,15 +442,18 @@ def approve_university(university_id: int, actor_id: int) -> Optional[str]:
                    status_note = NULL, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
              WHERE id = ?
             """,
-            (filename, actor_id, university_id),
+            (stored, actor_id, university_id),
         )
         _audit(conn, university_id, actor_id, "approved")
         conn.commit()
+        _invalidate_cache()
         return None
     except Exception:
         conn.rollback()
         if db_file is not None and db_file.exists():
             db_file.unlink()
+        if remote_name:
+            turso_admin.delete_database(remote_name)
         raise
     finally:
         conn.close()
@@ -406,6 +474,7 @@ def _set_status(university_id, actor_id, allowed_from, new_status, action, note=
         )
         _audit(conn, university_id, actor_id, action, (note or "").strip()[:500] or None)
         conn.commit()
+        _invalidate_cache()
         return None
     finally:
         conn.close()
@@ -431,6 +500,8 @@ def migrate_legacy_database() -> bool:
     """If this is an installation from before multi-tenancy (one database at
     DB_PATH holding a single university), register that database as the first,
     already-approved university. Nothing is copied or altered."""
+    if config.TURSO_ENABLED:
+        return False        # local files do not survive on the hosts Turso is used for
     legacy = config.DB_PATH
     if not legacy.exists():
         return False

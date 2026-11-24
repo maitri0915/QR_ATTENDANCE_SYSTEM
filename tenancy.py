@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 
 class TenantNotSelected(RuntimeError):
@@ -22,7 +22,7 @@ class Tenant:
     id: int
     slug: str
     name: str
-    db_path: Path
+    db_path: Union[Path, str]   # local file, or a libsql:// URL on Turso
 
 
 _current: ContextVar[Optional[Tenant]] = ContextVar("current_tenant", default=None)

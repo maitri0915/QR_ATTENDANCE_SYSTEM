@@ -3,11 +3,17 @@ from pathlib import Path
 import sqlite3
 
 
+import config
+import turso_client
 from tenancy import require_tenant
 
 
-def connect(db_path) -> sqlite3.Connection:
-    """Open a configured SQLite connection to a specific database file."""
+def connect(db_path):
+    """Open a connection to one database: a Turso URL (libsql://...) or a
+    local SQLite file path. Both behave like a sqlite3 connection."""
+    if turso_client.is_remote(db_path):
+        return turso_client.connect(db_path, config.TURSO_AUTH_TOKEN)
+
     conn = sqlite3.connect(
         db_path,
         timeout=15,
