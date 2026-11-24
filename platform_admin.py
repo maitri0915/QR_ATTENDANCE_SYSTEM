@@ -1,6 +1,8 @@
 """Platform super-admin area: review university registrations and manage
 university accounts. Has no access to any university's academic data."""
 
+import logging
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -9,6 +11,7 @@ from auth import get_current_user, login_user, verify_password
 from templating import templates
 
 router = APIRouter(prefix="/platform")
+log = logging.getLogger("uvicorn.error")
 
 
 def _platform_user(request: Request):
@@ -82,7 +85,13 @@ def _act(request, university_id, fn, success, *args):
     user = _platform_user(request)
     if not user:
         return RedirectResponse("/platform/login", status_code=303)
-    error = fn(university_id, user["id"], *args)
+    try:
+        error = fn(university_id, user["id"], *args)
+    except Exception as exc:
+        # Show the reason on the page (and in the server log) instead of a bare 500.
+        log.exception("Platform action failed for university %s", university_id)
+        _flash(request, f"The action failed: {exc.__class__.__name__}: {str(exc)[:300]}", "danger")
+        return RedirectResponse("/platform/dashboard", status_code=303)
     if error:
         _flash(request, error, "danger")
     else:

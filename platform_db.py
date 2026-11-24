@@ -385,7 +385,7 @@ def _wait_until_ready(target, tries: int = 20) -> None:
                 c.close()
         except sqlite3.Error as exc:
             last = exc
-            time.sleep(1.5)
+            time.sleep(2)
     raise sqlite3.OperationalError(f"The new university database did not become ready: {last}")
 
 
