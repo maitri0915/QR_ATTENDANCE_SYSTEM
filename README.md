@@ -44,3 +44,21 @@ Faculty open the session during the lecture time (the server only allows it betw
 
 ## Files
 `main.py` app & login/registration · `admin.py` `faculty.py` `student.py` role routes · `config.py` settings from `.env` · `database.py` schema · `init_db.py` first-run setup · `templates/` `static/` UI.
+
+
+## Multi-university platform
+
+One deployment now serves many universities, each fully isolated.
+
+**Roles**
+- **Platform super admin** - created only with `python init_db.py` (or `PLATFORM_ADMIN_*` in `.env`), never from a web form. Signs in at `/platform/login` (not linked from public pages). Approves / rejects registrations, suspends / re-activates universities, sees an overview.
+- **University admin** - registers the university at `/register-university`; after approval signs in at `/admin/login`, chooses the university, and manages departments, timetable, campus etc. exactly as before.
+- **Faculty / students** - register and sign in at `/faculty/...` and `/student/...`, choosing their university first (`?u=<slug>`).
+
+**How isolation works** - every approved university gets its own SQLite file in `data/tenants/<slug>.db`; the platform database (`data/platform.db`) only stores universities, their status and super admins. The university is stored in the signed session cookie and re-checked on every request, so a suspended university's users are signed out at once. `database.get_connection()` opens the current university's file, so existing queries cannot reach another university's rows.
+
+**Upgrading** - an existing `data/attendance.db` is registered automatically as the first (approved) university on startup, named by `COLLEGE_NAME`. Its users keep their passwords.
+
+**New env vars** - `PLATFORM_ADMIN_NAME/EMAIL/PASSWORD`, optional `PLATFORM_DATABASE_PATH`, `TENANT_DIR`, `PLATFORM_LABEL`.
+
+`python init_db.py --demo` also creates an approved "Demo University" with sample data.

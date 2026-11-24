@@ -338,7 +338,7 @@
             <div class="auth-alternate-action">
                 <span>Already registered?</span>
 
-                <a href="/student/login">
+                <a href="/student/login{% if university_slug %}?u={{ university_slug|urlencode }}{% endif %}">
                     Sign in
                 </a>
             </div>

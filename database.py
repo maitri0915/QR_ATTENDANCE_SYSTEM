@@ -3,13 +3,13 @@ from pathlib import Path
 import sqlite3
 
 
-from config import DB_PATH
+from tenancy import require_tenant
 
 
-def get_connection() -> sqlite3.Connection:
-    """Create a configured SQLite database connection."""
+def connect(db_path) -> sqlite3.Connection:
+    """Open a configured SQLite connection to a specific database file."""
     conn = sqlite3.connect(
-        DB_PATH,
+        db_path,
         timeout=15,
     )
 
@@ -24,9 +24,21 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def init_db() -> None:
-    """Create all database tables and indexes if they do not exist."""
-    conn = get_connection()
+def get_connection() -> sqlite3.Connection:
+    """Connection to the database of the university handling this request.
+
+    The university is set per request (see middleware.py / tenancy.py), so
+    every existing query automatically runs against that university's own
+    database and can never see another university's rows."""
+    return connect(require_tenant().db_path)
+
+
+def init_db(db_path=None) -> None:
+    """Create all tables and indexes of ONE university database.
+
+    Pass the database path when provisioning a university; without it the
+    database of the current request's university is used."""
+    conn = connect(db_path) if db_path is not None else get_connection()
 
     try:
         conn.executescript(

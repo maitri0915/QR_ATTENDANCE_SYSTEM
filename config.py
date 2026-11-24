@@ -15,7 +15,10 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---- Branding (shown across the site) -------------------------------------
 APP_NAME = os.getenv("APP_NAME", "AttendEase").strip() or "AttendEase"
-COLLEGE_NAME = os.getenv("COLLEGE_NAME", "방탄소년단 University").strip() or "방탄소년단 University"
+# COLLEGE_NAME is only used to name the university created when an existing
+# single-university database is migrated into the platform (see platform_db.py).
+COLLEGE_NAME = os.getenv("COLLEGE_NAME", "My University").strip() or "My University"
+PLATFORM_LABEL = os.getenv("PLATFORM_LABEL", "Multi-University Platform").strip()
 SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", "").strip()
 
 # ---- Security -------------------------------------------------------------
@@ -49,3 +52,10 @@ SECRET_KEY = _load_secret_key()
 # ---- Database -------------------------------------------------------------
 DB_PATH = Path(os.getenv("DATABASE_PATH", DATA_DIR / "attendance.db"))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+# ---- Multi-tenant storage --------------------------------------------------
+# One platform database (universities, super admins) plus one isolated SQLite
+# database per approved university.
+PLATFORM_DB_PATH = Path(os.getenv("PLATFORM_DATABASE_PATH", DATA_DIR / "platform.db"))
+TENANT_DIR = Path(os.getenv("TENANT_DIR", DATA_DIR / "tenants"))
+TENANT_DIR.mkdir(parents=True, exist_ok=True)

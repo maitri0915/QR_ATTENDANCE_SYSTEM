@@ -294,7 +294,7 @@
             <div class="auth-alternate-action">
                 <span>Already have an account?</span>
 
-                <a href="/faculty/login">
+                <a href="/faculty/login{% if university_slug %}?u={{ university_slug|urlencode }}{% endif %}">
                     Sign in
                 </a>
             </div>

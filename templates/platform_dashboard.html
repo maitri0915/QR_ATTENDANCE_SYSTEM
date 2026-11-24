@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Platform overview{% endblock %}
+
+{% macro status_badge(status) -%}
+<span class="badge {{ {'pending':'text-bg-warning','approved':'text-bg-success','rejected':'text-bg-secondary','suspended':'text-bg-danger'}[status] }}">{{ status|title }}</span>
+{%- endmacro %}
+
+{% block content %}
+<div class="page">
+    <header class="page-head">
+        <div>
+            <h1>Platform overview</h1>
+            <p>{{ app_name }} &middot; signed in as {{ current_user.name }}</p>
+        </div>
+    </header>
+
+    {% if flash %}
+    <div class="alert alert-{{ flash.kind }}" role="alert">{{ flash.message }}</div>
+    {% endif %}
+
+    <div class="row g-3 mb-4">
+        {% for key, label in [('pending','Awaiting approval'),('approved','Active'),('suspended','Suspended'),('rejected','Rejected')] %}
+        <div class="col-6 col-md-3">
+            <div class="border rounded p-3 h-100">
+                <div class="text-muted small">{{ label }}</div>
+                <div class="fs-2 fw-semibold">{{ counts[key] }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% set pending = universities|selectattr('status','equalto','pending')|list %}
+    <h2 class="h5 mt-4">Registration requests</h2>
+    {% if pending %}
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>University</th><th>Administrator</th><th>Submitted</th><th class="text-end">Decision</th></tr></thead>
+            <tbody>
+            {% for u in pending %}
+            <tr>
+                <td><strong>{{ u.name }}</strong><br><span class="text-muted small">{{ u.address or '' }}{% if u.contact_phone %} &middot; {{ u.contact_phone }}{% endif %}</span></td>
+                <td>{{ u.admin_name }}<br><span class="text-muted small">{{ u.admin_email }}</span></td>
+                <td class="small">{{ u.created_at }}</td>
+                <td class="text-end">
+                    <form method="post" action="/platform/universities/{{ u.id }}/approve" class="d-inline">
+                        <button class="btn btn-sm btn-success">Approve</button>
+                    </form>
+                    <form method="post" action="/platform/universities/{{ u.id }}/reject" class="d-inline-flex gap-1 mt-1">
+                        <input name="note" class="form-control form-control-sm" placeholder="Reason (shown to applicant)" maxlength="500">
+                        <button class="btn btn-sm btn-outline-danger">Reject</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No requests are waiting.</p>
+    {% endif %}
+
+    <h2 class="h5 mt-5">Universities</h2>
+    {% set others = universities|rejectattr('status','equalto','pending')|list %}
+    {% if others %}
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>University</th><th>Status</th><th>Admin</th><th>Students</th><th>Faculty</th><th class="text-end">Manage</th></tr></thead>
+            <tbody>
+            {% for u in others %}
+            <tr>
+                <td><strong>{{ u.name }}</strong><br><span class="text-muted small">{{ u.slug }}</span></td>
+                <td>{{ status_badge(u.status) }}{% if u.status_note %}<br><span class="text-muted small">{{ u.status_note }}</span>{% endif %}</td>
+                <td class="small">{{ u.admin_email }}</td>
+                <td>{{ u.usage.students if u.usage and u.usage.students is not none else '-' }}</td>
+                <td>{{ u.usage.faculty if u.usage and u.usage.faculty is not none else '-' }}</td>
+                <td class="text-end">
+                    {% if u.status == 'approved' %}
+                    <form method="post" action="/platform/universities/{{ u.id }}/suspend" class="d-inline-flex gap-1">
+                        <input name="note" class="form-control form-control-sm" placeholder="Reason (optional)" maxlength="500">
+                        <button class="btn btn-sm btn-outline-danger">Suspend</button>
+                    </form>
+                    {% elif u.status == 'suspended' %}
+                    <form method="post" action="/platform/universities/{{ u.id }}/activate" class="d-inline">
+                        <button class="btn btn-sm btn-success">Activate</button>
+                    </form>
+                    {% elif u.status == 'rejected' %}
+                    <form method="post" action="/platform/universities/{{ u.id }}/approve" class="d-inline">
+                        <button class="btn btn-sm btn-outline-success">Approve after all</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No universities yet.</p>
+    {% endif %}
+
+    {% if audit %}
+    <h2 class="h5 mt-5">Recent activity</h2>
+    <ul class="list-unstyled small text-muted">
+        {% for e in audit %}
+        <li>{{ e.created_at }} &middot; {{ e.university or 'University' }} {{ e.action }}{% if e.actor %} by {{ e.actor }}{% endif %}{% if e.note %} &mdash; {{ e.note }}{% endif %}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{% endblock %}

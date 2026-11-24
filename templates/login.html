@@ -61,15 +61,17 @@
             </form>
 
             {% if role_key == "student" %}
-                <p class="signin-alt">New here? <a href="/student/register">Create a student account</a></p>
+                <p class="signin-alt">New here? <a href="/student/register{% if university_slug %}?u={{ university_slug|urlencode }}{% endif %}">Create a student account</a></p>
             {% elif role_key == "faculty" %}
-                <p class="signin-alt">New here? <a href="/faculty/register">Create a faculty account</a></p>
+                <p class="signin-alt">New here? <a href="/faculty/register{% if university_slug %}?u={{ university_slug|urlencode }}{% endif %}">Create a faculty account</a></p>
             {% endif %}
 
+            <p class="signin-alt"><a href="/{{ role_key }}/login">Not your university? Change university</a></p>
+
             <p class="signin-alt signin-switch">
-                {% if role_key != "student" %}<a href="/student/login">Student sign in</a>{% endif %}
-                {% if role_key != "faculty" %}<a href="/faculty/login">Faculty sign in</a>{% endif %}
-                {% if role_key != "admin" %}<a href="/admin/login">Admin sign in</a>{% endif %}
+                {% if role_key != "student" %}<a href="/student/login{% if university_slug %}?u={{ university_slug|urlencode }}{% endif %}">Student sign in</a>{% endif %}
+                {% if role_key != "faculty" %}<a href="/faculty/login{% if university_slug %}?u={{ university_slug|urlencode }}{% endif %}">Faculty sign in</a>{% endif %}
+                {% if role_key != "admin" %}<a href="/admin/login{% if university_slug %}?u={{ university_slug|urlencode }}{% endif %}">Admin sign in</a>{% endif %}
             </p>
         </div>
     </section>

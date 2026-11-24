@@ -1,69 +1,93 @@
-"""First-time setup.
+"""First-time setup for the multi-university platform.
 
-    python init_db.py            create the database and the first admin account
-    python init_db.py --demo     ...and add a sample department, semesters and subjects
+    python init_db.py                    create the platform database and the first
+                                         platform super admin
+    python init_db.py --demo             ...and an approved "Demo University" with
+                                         a sample department, semesters and subjects
 
-The admin account comes from ADMIN_NAME / ADMIN_EMAIL / ADMIN_PASSWORD in `.env`;
-if those are not set you will be asked for them.
+The super admin comes from PLATFORM_ADMIN_NAME / PLATFORM_ADMIN_EMAIL /
+PLATFORM_ADMIN_PASSWORD in `.env`; if those are not set you are asked for them.
+Super admins can only be created here (or via .env) - never from a web form.
+
+Universities register themselves at /register-university and are approved by
+the super admin. An existing single-university database (data/attendance.db) is
+registered automatically as the first university on startup.
 """
 
 import getpass
 import os
 import sys
 
-from auth import hash_password
+import platform_db
 from database import get_connection, init_db
+from tenancy import use_tenant
 
 
-def admin_exists() -> bool:
-    conn = get_connection()
-    try:
-        return conn.execute("SELECT 1 FROM admins LIMIT 1").fetchone() is not None
-    finally:
-        conn.close()
-
-
-def create_admin(name: str, email: str, password: str) -> None:
-    email = email.strip().lower()
-    if "@" not in email:
-        raise ValueError("Enter a valid admin email address.")
-    if len(password) < 8:
-        raise ValueError("The admin password must have at least 8 characters.")
-    conn = get_connection()
-    try:
-        conn.execute(
-            "INSERT INTO admins (name, email, password_hash, is_active) VALUES (?, ?, ?, 1)",
-            (name.strip() or "Administrator", email, hash_password(password)),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def ensure_admin_from_env() -> bool:
-    """Create the first admin from environment variables, if none exists yet."""
-    email = os.getenv("ADMIN_EMAIL", "").strip()
-    password = os.getenv("ADMIN_PASSWORD", "")
-    if not email or not password or admin_exists():
+def ensure_platform_admin_from_env() -> bool:
+    """Create the first super admin from the environment, if none exists yet."""
+    email = os.getenv("PLATFORM_ADMIN_EMAIL", "").strip()
+    password = os.getenv("PLATFORM_ADMIN_PASSWORD", "")
+    if not email or not password or platform_db.platform_admin_exists():
         return False
-    create_admin(os.getenv("ADMIN_NAME", "Administrator"), email, password)
+    platform_db.create_platform_admin(
+        os.getenv("PLATFORM_ADMIN_NAME", "Platform Admin"), email, password
+    )
     return True
 
 
-def prompt_for_admin() -> None:
-    print("\nCreate the administrator account")
-    name = input("  Full name  : ").strip() or "Administrator"
+def prompt_for_platform_admin() -> None:
+    print("\nCreate the platform super admin account")
+    name = input("  Full name  : ").strip() or "Platform Admin"
     email = input("  Email      : ").strip()
     while True:
         password = getpass.getpass("  Password   : ")
         if password == getpass.getpass("  Repeat     : "):
             break
         print("  Passwords do not match, try again.")
-    create_admin(name, email, password)
-    print("  Admin account created.")
+    platform_db.create_platform_admin(name, email, password)
+    print("  Super admin created.")
+
+
+def seed_demo_university() -> None:
+    """Create an already-approved demo university with sample academic data."""
+    admin_email = os.getenv("DEMO_ADMIN_EMAIL", "admin@demo.edu")
+    admin_password = os.getenv("DEMO_ADMIN_PASSWORD", "demo-password-1")
+
+    error = platform_db.register_university(
+        "Demo University", "", "", "Demo Admin", admin_email, admin_password
+    )
+    if error and "already" not in error:
+        raise ValueError(error)
+
+    demo = next(
+        (u for u in platform_db.list_universities() if u["name"] == "Demo University"),
+        None,
+    )
+    if demo is None:
+        return
+    if demo["status"] == "pending":
+        actor = None
+        conn = platform_db.get_platform_connection()
+        try:
+            row = conn.execute("SELECT id FROM platform_admins ORDER BY id LIMIT 1").fetchone()
+            actor = row["id"] if row else None
+        finally:
+            conn.close()
+        err = platform_db.approve_university(demo["id"], actor)
+        if err:
+            raise ValueError(err)
+        demo = platform_db.get_university(demo["id"])
+
+    tenant = platform_db.get_active_tenant(demo["slug"])
+    if tenant is None:
+        return
+    with use_tenant(tenant):
+        seed_demo_data()
+    print(f"Demo university ready: slug '{tenant.slug}', admin {admin_email}.")
 
 
 def seed_demo_data() -> None:
+    """Sample academic data for the CURRENT university."""
     conn = get_connection()
     try:
         conn.execute(
@@ -102,20 +126,23 @@ def seed_demo_data() -> None:
 
 
 def main() -> None:
-    init_db()
-    print("Database ready.")
+    platform_db.init_platform_db()
+    print("Platform database ready.")
 
-    if admin_exists():
-        print("An admin account already exists - nothing to create.")
-    elif ensure_admin_from_env():
-        print("Admin account created from ADMIN_EMAIL / ADMIN_PASSWORD.")
+    if platform_db.platform_admin_exists():
+        print("A platform super admin already exists - nothing to create.")
+    elif ensure_platform_admin_from_env():
+        print("Platform super admin created from PLATFORM_ADMIN_EMAIL / PLATFORM_ADMIN_PASSWORD.")
     elif sys.stdin.isatty():
-        prompt_for_admin()
+        prompt_for_platform_admin()
     else:
-        print("No admin yet. Set ADMIN_EMAIL and ADMIN_PASSWORD in .env and run again.")
+        print("No super admin yet. Set PLATFORM_ADMIN_EMAIL and PLATFORM_ADMIN_PASSWORD in .env and run again.")
+
+    if platform_db.migrate_legacy_database():
+        print("Existing single-university database registered as the first university.")
 
     if "--demo" in sys.argv:
-        seed_demo_data()
+        seed_demo_university()
 
 
 if __name__ == "__main__":

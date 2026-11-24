@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Registration status{% endblock %}
+
+{% block content %}
+<div class="page" style="max-width: 640px;">
+    <header class="page-head"><div>
+        <h1>Registration status</h1>
+        <p>Enter the administrator email you registered with.</p>
+    </div></header>
+
+    <form method="post" class="mb-4">
+        <div class="input-group">
+            <input type="email" class="form-control" name="email" required maxlength="254" value="{{ email }}" placeholder="admin@university.edu">
+            <button class="btn btn-primary">Check</button>
+        </div>
+    </form>
+
+    {% if results is not none %}
+        {% if results %}
+        <ul class="list-group">
+            {% for r in results %}
+            <li class="list-group-item">
+                <strong>{{ r.name }}</strong> &mdash; {{ r.status|title }}
+                {% if r.status == 'approved' %}<br><a href="/admin/login">Sign in as administrator</a>{% endif %}
+                {% if r.status_note %}<br><span class="text-muted small">{{ r.status_note }}</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No registration found for that email.</p>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

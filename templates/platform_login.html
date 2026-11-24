@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Platform sign in{% endblock %}
+
+{% block content %}
+<div class="signin">
+    <aside class="signin-side">
+        <a href="/" class="back-link"><i class="bi bi-arrow-left"></i> Home</a>
+        <div class="signin-side-body">
+            <h1>Platform administration.</h1>
+            <p>Review university registrations and manage institution accounts.</p>
+        </div>
+        <p class="signin-side-foot">{{ app_name }}</p>
+    </aside>
+
+    <section class="signin-form">
+        <div class="signin-card">
+            <h2>Super admin sign in</h2>
+            <p class="signin-sub">This area is for the platform owner only.</p>
+
+            {% if error %}
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-circle-fill me-2"></i>{{ error }}
+            </div>
+            {% endif %}
+
+            <form method="post" data-prevent-double-submit>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email address</label>
+                    <input type="email" class="form-control" id="email" name="email"
+                           required maxlength="254" autocomplete="username" autofocus>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password"
+                           required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Sign in</button>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

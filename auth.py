@@ -7,7 +7,10 @@ from pwdlib import PasswordHash
 
 password_hash = PasswordHash.recommended()
 
-VALID_ROLES = {"admin", "faculty", "student"}
+# "superadmin" is the platform owner (no university); the rest belong to one
+# university and carry its slug in the session.
+VALID_ROLES = {"superadmin", "admin", "faculty", "student"}
+TENANT_ROLES = {"admin", "faculty", "student"}
 
 
 def hash_password(password: str) -> str:
@@ -59,10 +62,20 @@ def get_current_user(request: Request) -> Optional[dict]:
     if not isinstance(account.get("email"), str):
         return None
 
+    # University users must be bound to a university; super admins must not be.
+    university = account.get("university")
+    if account["role"] in TENANT_ROLES:
+        if not isinstance(university, str) or not university:
+            return None
+    elif university:
+        return None
+
     return account
 
 
-def login_user(request: Request, account: dict, role: str) -> None:
+def login_user(
+    request: Request, account: dict, role: str, university: Optional[str] = None
+) -> None:
     """
     Store a successfully authenticated account in the session.
 
@@ -92,6 +105,9 @@ def login_user(request: Request, account: dict, role: str) -> None:
     if account.get("is_active", 1) != 1:
         raise ValueError("This account is inactive.")
 
+    if role in TENANT_ROLES and not university:
+        raise ValueError("A university is required for this role.")
+
     # Clear previous session data before starting a new session.
     request.session.clear()
 
@@ -100,6 +116,7 @@ def login_user(request: Request, account: dict, role: str) -> None:
         "name": name,
         "email": email,
         "role": role,
+        "university": university if role in TENANT_ROLES else None,
     }
 
 

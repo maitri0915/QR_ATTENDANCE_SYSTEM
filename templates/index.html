@@ -4,19 +4,24 @@
 
 {% block content %}
 
+{% if notice %}
+<div class="alert alert-warning m-3" role="alert">{{ notice }}</div>
+{% endif %}
+
 <section class="hero">
     <div class="hero-inner">
 
         <div class="hero-copy">
             <h1>Attendance you can trust, taken in ten seconds.</h1>
             <p>
-                {{ college_name }} uses {{ app_name }} to record attendance with a QR code
+                Universities use {{ app_name }} to record attendance with a QR code
                 that changes every 30 seconds and only works from inside the campus.
-                No paper registers, no proxies.
+                Every university gets its own private workspace. No paper registers, no proxies.
             </p>
             <div class="hero-actions">
                 <a class="btn btn-primary btn-lg" href="/student/login">Student sign in</a>
                 <a class="btn btn-outline-light btn-lg" href="/faculty/login">Faculty sign in</a>
+                <a class="btn btn-outline-light btn-lg" href="/register-university">Register your university</a>
             </div>
         </div>
 
@@ -67,10 +72,11 @@
                 <i class="bi bi-building-gear"></i>
                 <div class="portal-text">
                     <h3>Administrators</h3>
-                    <p>Manage departments, timetables and the campus boundary.</p>
+                    <p>Manage your university's departments, timetables and campus boundary, or register a new university.</p>
                 </div>
                 <div class="portal-links">
                     <a class="btn btn-outline-secondary" href="/admin/login">Admin sign in</a>
+                    <a href="/register-university">Register a university</a>
                 </div>
             </li>
         </ul>
