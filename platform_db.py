@@ -541,3 +541,32 @@ def migrate_legacy_database() -> bool:
         return True
     finally:
         conn.close()
+
+
+
+def delete_university_registration(university_id, actor_id):
+    conn = get_platform_connection()
+    try:
+        uni = conn.execute(
+            "SELECT id, status FROM universities WHERE id = ?",
+            (university_id,),
+        ).fetchone()
+
+        if not uni:
+            return "University not found."
+
+        if uni["status"] in ("approved", "suspended"):
+            return "Cannot remove a university with an existing workspace."
+
+        conn.execute(
+            "DELETE FROM universities WHERE id = ?",
+            (university_id,),
+        )
+        conn.commit()
+        _invalidate_cache()
+        return None
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
