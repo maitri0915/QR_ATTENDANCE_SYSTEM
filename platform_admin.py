@@ -121,14 +121,3 @@ def suspend(request: Request, university_id: int, note: str = Form("")):
 def activate(request: Request, university_id: int):
     return _act(request, university_id, platform_db.activate_university,
                 "University re-activated.")
-
-
-
-@router.post("/universities/{university_id}/delete")
-def delete_university(request: Request, university_id: int):
-    return _act(
-        request,
-        university_id,
-        platform_db.delete_university_registration,
-        "University registration removed.",
-    )
