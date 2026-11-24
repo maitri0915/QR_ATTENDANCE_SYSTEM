@@ -131,25 +131,65 @@
                     {% if departments %}
                         <div class="table-responsive">
                             <table class="table align-middle management-table">
-                                <thead>
-                                    <tr>
-                                        <th>Code</th>
-                                        <th>Department Name</th>
-                                    </tr>
-                                </thead>
+                                
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Department Name</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
 
-                                <tbody>
-                                    {% for department in departments %}
-                                        <tr>
-                                            <td>
-                                                <span class="management-code">
-                                                    {{ department.code }}
-                                                </span>
-                                            </td>
-                                            <td>{{ department.name }}</td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
+                            <tbody>
+                                {% for department in departments %}
+                                <tr>
+                                    <td>
+                                        <span class="management-code">
+                                            {{ department.code }}
+                                        </span>
+                                    </td>
+
+                                    <td>{{ department.name }}</td>
+
+                                    <td>
+                                        <form
+                                            method="post"
+                                            action="/admin/departments/{{ department.id }}/update"
+                                            class="d-flex flex-column gap-2"
+                                        >
+                                            <input
+                                                type="text"
+                                                name="code"
+                                                class="form-control form-control-sm"
+                                                value="{{ department.code }}"
+                                                maxlength="20"
+                                                aria-label="Department code"
+                                                required
+                                            >
+
+                                            <input
+                                                type="text"
+                                                name="name"
+                                                class="form-control form-control-sm"
+                                                value="{{ department.name }}"
+                                                maxlength="100"
+                                                aria-label="Department name"
+                                                required
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="btn btn-sm btn-primary"
+                                            >
+                                                <i class="bi bi-pencil-square me-1"></i>
+                                                Save Changes
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+
                             </table>
                         </div>
                     {% else %}

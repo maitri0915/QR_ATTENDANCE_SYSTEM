@@ -321,6 +321,52 @@ def create_department(
         return admin_error("Unable to create the department.", 500)
 
 
+@router.post("/departments/{department_id}/update")
+def update_department(
+    request: Request,
+    department_id: int,
+    name: str = Form(...),
+    code: str = Form(...),
+):
+    if not ensure_admin(request):
+        return admin_redirect()
+
+    name = get_form_value(name)
+    code = get_form_value(code).upper()
+
+    if not name or not code:
+        return admin_error("Department name and code are required.")
+
+    try:
+        with get_connection() as conn:
+            existing = conn.execute(
+                "SELECT id FROM departments WHERE id = ?",
+                (department_id,),
+            ).fetchone()
+
+            if not existing:
+                return admin_error("Department not found.")
+
+            conn.execute(
+                """
+                UPDATE departments
+                SET name = ?, code = ?
+                WHERE id = ?
+                """,
+                (name, code, department_id),
+            )
+            conn.commit()
+
+        return RedirectResponse("/admin/manage", status_code=303)
+
+    except sqlite3.IntegrityError:
+        return admin_error(
+            "A department with that name or code already exists."
+        )
+    except sqlite3.Error:
+        return admin_error("Unable to update the department.", 500)
+
+
 # ---------------------------------------------------------
 # SEMESTERS
 # ---------------------------------------------------------
