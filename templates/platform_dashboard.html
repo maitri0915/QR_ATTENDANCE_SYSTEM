@@ -94,6 +94,12 @@
                     <form method="post" action="/platform/universities/{{ u.id }}/approve" class="d-inline">
                         <button class="btn btn-sm btn-outline-success">Approve after all</button>
                     </form>
+                    <form method="post"
+                          action="/platform/universities/{{ u.id }}/delete"
+                          class="d-inline"
+                          onsubmit="return confirm('Delete this registration permanently?');">
+                        <button class="btn btn-sm btn-danger">Delete</button>
+                    </form>
                     {% endif %}
                 </td>
             </tr>
