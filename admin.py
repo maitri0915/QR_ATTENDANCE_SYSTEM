@@ -201,6 +201,7 @@ def admin_manage(request: Request):
             divisions = conn.execute(
                 """
                 SELECT v.*, d.name AS department_name,
+                       d.code AS department_code,
                        s.number AS semester_number
                 FROM divisions v
                 JOIN departments d ON d.id = v.department_id
