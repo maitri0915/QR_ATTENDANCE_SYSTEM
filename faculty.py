@@ -266,7 +266,7 @@ def create_attendance_session(faculty, timetable_id, assignment_id=None):
     conn = get_connection()
 
     try:
-        now = datetime.now()
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
         lecture_date = now.strftime("%Y-%m-%d")
 
         # Verify that the timetable entry belongs to this faculty member.
