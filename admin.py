@@ -59,10 +59,18 @@ def admin_error(message: str, status_code: int = 400):
 
 
 def parse_time(value: str):
-    try:
-        return time.fromisoformat(value.strip())
-    except (ValueError, AttributeError):
+    if not value:
         return None
+
+    value = value.strip()
+
+    for fmt in ("%H:%M", "%H:%M:%S", "%I:%M %p", "%I:%M:%S %p"):
+        try:
+            return datetime.strptime(value, fmt).time()
+        except ValueError:
+            continue
+
+    return None
 
 
 def get_form_value(value):
