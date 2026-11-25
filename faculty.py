@@ -102,11 +102,9 @@ def parse_clock_time(value):
             return None
 
 
+
 def get_today_timetable_entry(conn, timetable_id, faculty_id):
-    """
-    Verify that a timetable entry belongs to this faculty member,
-    is a lecture/lab, is scheduled today, and is within its time window.
-    """
+    """Validate today's lecture and its scheduled time in Indian Standard Time."""
     entry = conn.execute(
         """
         SELECT
@@ -135,7 +133,8 @@ def get_today_timetable_entry(conn, timetable_id, faculty_id):
     if not entry:
         return None, "Lecture not found or not assigned to you."
 
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    current_time = now.time().replace(tzinfo=None)
 
     if entry["day_of_week"] != now.weekday():
         return None, "This lecture is not scheduled for today."
@@ -146,13 +145,14 @@ def get_today_timetable_entry(conn, timetable_id, faculty_id):
     if not start or not end or start >= end:
         return None, "The timetable contains an invalid time."
 
-    if now.time() < start:
+    if current_time < start:
         return None, f"Attendance cannot start before {start.strftime('%I:%M %p')}."
 
-    if now.time() > end:
+    if current_time > end:
         return None, "This lecture has already ended."
 
     return entry, None
+
 
 
 def validate_timetable_for_faculty(conn, timetable_id, faculty_id):
