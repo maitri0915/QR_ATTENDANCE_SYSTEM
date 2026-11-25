@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from templating import templates
 from pydantic import BaseModel
-
+from zoneinfo import ZoneInfo
 from auth import get_current_user
 from database import get_connection
 
@@ -705,7 +705,8 @@ def start_attendance_page(request: Request, assignment_id: int):
         if not assignment:
             return error_page("Assignment not found.", 404)
 
-        now = datetime.now()
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+        current_time = now.time().replace(tzinfo=None)
         today = now.strftime("%Y-%m-%d")
         lectures = []
 
@@ -739,9 +740,9 @@ def start_attendance_page(request: Request, assignment_id: int):
                 state = "active"
             elif row["session_id"]:
                 state = "done"
-            elif start and end and now.time() < start:
+            elif start and end and current_time < start:
                 state = "upcoming"
-            elif start and end and now.time() > end:
+            elif start and end and current_time > end:
                 state = "ended"
             else:
                 state = "open"
