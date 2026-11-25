@@ -547,7 +547,11 @@ def mark_attendance(
             data.latitude,
             data.longitude,
         )
-
+        print(
+            "GPS DEBUG:",
+            "Campus:", college["latitude"], college["longitude"],
+            "Student:", data.latitude, data.longitude,
+        )
         radius = college["radius_meters"]
 
         if radius is None or radius <= 0:
